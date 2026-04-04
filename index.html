@@ -32,7 +32,7 @@
         
         .btn-group { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }
         
-        /* HYBRID FIX: Chrome/Via/Xmini Selection Fix */
+        /* Selection & Highlight Fix for Chrome/Via */
         .action-btn, .round-btn { 
             font-size: 11px; color: #00a884; cursor: pointer; font-weight: bold; text-transform: uppercase;
             -webkit-user-select: none; user-select: none; 
@@ -91,18 +91,15 @@
 
     function startVoiceTyping() {
         if (!recognition) { alert("Voice typing not supported."); return; }
-        
         let oldText = userInput.value.trim();
         recognition.lang = 'hi-IN';
         recognition.start();
         document.getElementById('mic-btn').style.background = "#ea0038";
-
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
             userInput.value = oldText !== "" ? oldText + " " + transcript : transcript;
             document.getElementById('mic-btn').style.background = "#3b4a54";
         };
-
         recognition.onspeechend = () => { recognition.stop(); document.getElementById('mic-btn').style.background = "#3b4a54"; };
         recognition.onerror = () => { document.getElementById('mic-btn').style.background = "#3b4a54"; };
     }
@@ -124,13 +121,11 @@
         if (sender === 'bot') {
             content = text.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => `<pre><code class="language-${lang || 'javascript'}">${code.trim()}</code></pre>`);
         }
-
         const buttons = sender === 'bot' ? `
             <div class="btn-group">
                 <span class="action-btn" onclick="speakFromBubble(this)">Listen 🔊</span>
                 <span class="action-btn" onclick="copyToClipboard(this)">Copy Text</span>
             </div>` : '';
-
         div.innerHTML = `<div class="bubble"><div class="text-content">${content}</div>${buttons}</div>`;
         chatBox.appendChild(div);
         if (sender === 'bot') Prism.highlightAllUnder(div);
@@ -160,7 +155,40 @@
         addBubble(`<img src="${url}">`, 'bot');
     }
 
-    // 4. Hybrid Copy & Listen Fix (For Redmi 4A / Chrome / Via / Xmini)
+    // 4. CLOUD TTS & BACKUP SYSTEM TTS
+    let currentAudio = null;
+
+    function speakFromBubble(btn) {
+        const text = btn.closest('.bubble').querySelector('.text-content').innerText;
+        speakText(text);
+    }
+
+    function speakText(text) {
+        // पुराने ऑडियो को रोकें
+        if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+        window.speechSynthesis.cancel();
+
+        // कोड हटाकर साफ़ टेक्स्ट (Cloud API लिमिट 200 शब्द)
+        const cleanText = text.replace(/```[\s\S]*?```/g, "Code Block").substring(0, 250);
+        
+        // Google Translate Cloud TTS URL
+        const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(cleanText)}&tl=hi&client=tw-ob`;
+
+        currentAudio = new Audio(voiceUrl);
+        currentAudio.play().catch(e => {
+            console.log("Cloud TTS Failed, using System TTS...");
+            fallbackToSystemTTS(cleanText);
+        });
+    }
+
+    function fallbackToSystemTTS(text) {
+        const s = new SpeechSynthesisUtterance(text);
+        s.lang = 'hi-IN';
+        window.speechSynthesis.resume();
+        window.speechSynthesis.speak(s);
+    }
+
+    // 5. COPY LOGIC
     function copyToClipboard(btn) {
         const text = btn.closest('.bubble').querySelector('.text-content').innerText;
         if (navigator.clipboard && window.isSecureContext) {
@@ -179,34 +207,7 @@
         setTimeout(() => btn.innerText = old, 2000);
     }
 
-    function speakFromBubble(btn) {
-        const text = btn.closest('.bubble').querySelector('.text-content').innerText;
-        speakText(text);
-    }
-
-    function speakText(text) {
-        if (!window.speechSynthesis) return;
-        window.speechSynthesis.cancel(); // पुरानी लाइन साफ़ करें
-
-        const cleanText = text.replace(/```[\s\S]*?```/g, "Code Block");
-        const s = new SpeechSynthesisUtterance(cleanText);
-        s.lang = 'hi-IN';
-        s.rate = 1.0;
-
-        // Chrome/Via/Xmini 'Resume' हैक
-        setTimeout(() => {
-            window.speechSynthesis.resume();
-            window.speechSynthesis.speak(s);
-        }, 100);
-
-        // आवाज़ अटकने पर धक्का देने वाला टाइमर
-        let fixSpeech = setInterval(() => {
-            if (window.speechSynthesis.speaking) window.speechSynthesis.resume();
-            else clearInterval(fixSpeech);
-        }, 3000);
-    }
-
     userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMsg(); });
 </script>
 </body>
-    </html>
+        </html>
