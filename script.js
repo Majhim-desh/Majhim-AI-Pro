@@ -88,28 +88,49 @@ async function generateAIImage(prompt) {
     addBubble(`<img src="${url}">`, 'bot');
 }
 
-// 4. CLOUD TTS Logic
+// 4. SMART CLOUD TTS (बिना रुके पूरा बोलने वाला)
 let currentAudio = null;
-
-function speakFromBubble(btn) {
-    const text = btn.closest('.bubble').querySelector('.text-content').innerText;
-    speakText(text);
-}
+let speechQueue = [];
+let queueIndex = 0;
 
 function speakText(text) {
+    // पुरानी आवाज़ रोकें और कतार (Queue) साफ़ करें
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     window.speechSynthesis.cancel();
-    const cleanText = text.replace(/```[\s\S]*?```/g, "Code Block").substring(0, 250);
-    const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(cleanText)}&tl=hi&client=tw-ob`;
-    currentAudio = new Audio(voiceUrl);
-    currentAudio.play().catch(e => { fallbackToSystemTTS(cleanText); });
+    speechQueue = [];
+    queueIndex = 0;
+
+    // 1. कोड ब्लॉक्स हटाएँ
+    let cleanText = text.replace(/```[\s\S]*?```/g, "Code Block");
+
+    // 2. टेक्स्ट को छोटे टुकड़ों में तोड़ें (बिंदु '.', '?' या '!' के आधार पर)
+    // ताकि Google API की 200 अक्षर वाली लिमिट न टूटे
+    speechQueue = cleanText.match(/[^.!?]+[.!?]?/g) || [cleanText];
+
+    // बोलना शुरू करें
+    playNextChunk();
 }
 
-function fallbackToSystemTTS(text) {
-    const s = new SpeechSynthesisUtterance(text);
-    s.lang = 'hi-IN';
-    window.speechSynthesis.resume();
-    window.speechSynthesis.speak(s);
+function playNextChunk() {
+    if (queueIndex >= speechQueue.length) return; // सब बोल दिया
+
+    let chunk = speechQueue[queueIndex].trim();
+    if (chunk.length < 2) { queueIndex++; playNextChunk(); return; }
+
+    const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=hi&client=tw-ob`;
+
+    currentAudio = new Audio(voiceUrl);
+    
+    // जब एक टुकड़ा खत्म हो, तब अगला शुरू करें
+    currentAudio.onended = () => {
+        queueIndex++;
+        playNextChunk();
+    };
+
+    currentAudio.play().catch(e => {
+        console.log("Cloud failed, switching to System...");
+        fallbackToSystemTTS(chunk);
+    });
 }
 
 // 5. Copy Logic
@@ -132,3 +153,16 @@ function showStatus(btn, msg) {
 }
 
 userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMsg(); });
+// बटन से आवाज़ शुरू करने के लिए (यह आपके कोड में मिसिंग था)
+function speakFromBubble(btn) {
+    const text = btn.closest('.bubble').querySelector('.text-content').innerText;
+    speakText(text);
+}
+
+// अगर क्लाउड काम न करे तो सिस्टम की आवाज़ इस्तेमाल करें
+function fallbackToSystemTTS(text) {
+    const s = new SpeechSynthesisUtterance(text);
+    s.lang = 'hi-IN';
+    window.speechSynthesis.resume();
+    window.speechSynthesis.speak(s);
+}
