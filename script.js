@@ -18,7 +18,7 @@ async function getAIKey() {
 const chatBox = document.getElementById('chat-container');
 const userInput = document.getElementById('user-input');
 
-// 2. Hybrid Voice Recognition
+// 2. Hybrid Voice Recognition (Speech to Text)
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 
@@ -88,49 +88,72 @@ async function generateAIImage(prompt) {
     addBubble(`<img src="${url}">`, 'bot');
 }
 
-// 4. SMART CLOUD TTS (बिना रुके पूरा बोलने वाला)
+// 4. SMART CLOUD TTS (टुकड़ों में बोलने वाला - Fix for "नमस्ते!")
 let currentAudio = null;
 let speechQueue = [];
 let queueIndex = 0;
 
 function speakText(text) {
-    // पुरानी आवाज़ रोकें और कतार (Queue) साफ़ करें
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     window.speechSynthesis.cancel();
-    speechQueue = [];
+    
+    let cleanText = text.replace(/```[\s\S]*?```/g, "Code Block").trim();
+
+    // बेहतर स्प्लिटिंग लॉजिक: वाक्यों को . ! ? के बाद तोड़ता है
+    speechQueue = cleanText.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+    
+    if (speechQueue.length === 0 && cleanText.length > 0) {
+        speechQueue = [cleanText];
+    }
+
     queueIndex = 0;
-
-    // 1. कोड ब्लॉक्स हटाएँ
-    let cleanText = text.replace(/```[\s\S]*?```/g, "Code Block");
-
-    // 2. टेक्स्ट को छोटे टुकड़ों में तोड़ें (बिंदु '.', '?' या '!' के आधार पर)
-    // ताकि Google API की 200 अक्षर वाली लिमिट न टूटे
-    speechQueue = cleanText.match(/[^.!?]+[.!?]?/g) || [cleanText];
-
-    // बोलना शुरू करें
     playNextChunk();
 }
 
 function playNextChunk() {
-    if (queueIndex >= speechQueue.length) return; // सब बोल दिया
+    if (queueIndex >= speechQueue.length) {
+        currentAudio = null;
+        return;
+    }
 
     let chunk = speechQueue[queueIndex].trim();
-    if (chunk.length < 2) { queueIndex++; playNextChunk(); return; }
+    if (!chunk) {
+        queueIndex++;
+        playNextChunk();
+        return;
+    }
 
     const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=hi&client=tw-ob`;
-
     currentAudio = new Audio(voiceUrl);
     
-    // जब एक टुकड़ा खत्म हो, तब अगला शुरू करें
     currentAudio.onended = () => {
         queueIndex++;
         playNextChunk();
     };
 
-    currentAudio.play().catch(e => {
-        console.log("Cloud failed, switching to System...");
+    currentAudio.onerror = () => {
         fallbackToSystemTTS(chunk);
+        queueIndex++;
+        playNextChunk();
+    };
+
+    currentAudio.play().catch(e => {
+        fallbackToSystemTTS(chunk);
+        queueIndex++;
+        playNextChunk();
     });
+}
+
+function speakFromBubble(btn) {
+    const text = btn.closest('.bubble').querySelector('.text-content').innerText;
+    speakText(text);
+}
+
+function fallbackToSystemTTS(text) {
+    const s = new SpeechSynthesisUtterance(text);
+    s.lang = 'hi-IN';
+    window.speechSynthesis.resume();
+    window.speechSynthesis.speak(s);
 }
 
 // 5. Copy Logic
@@ -153,16 +176,3 @@ function showStatus(btn, msg) {
 }
 
 userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMsg(); });
-// बटन से आवाज़ शुरू करने के लिए (यह आपके कोड में मिसिंग था)
-function speakFromBubble(btn) {
-    const text = btn.closest('.bubble').querySelector('.text-content').innerText;
-    speakText(text);
-}
-
-// अगर क्लाउड काम न करे तो सिस्टम की आवाज़ इस्तेमाल करें
-function fallbackToSystemTTS(text) {
-    const s = new SpeechSynthesisUtterance(text);
-    s.lang = 'hi-IN';
-    window.speechSynthesis.resume();
-    window.speechSynthesis.speak(s);
-}
