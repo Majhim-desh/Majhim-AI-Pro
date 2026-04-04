@@ -31,13 +31,19 @@
         pre { background: #1a1a1a !important; padding: 10px; border-radius: 8px; overflow-x: auto; margin: 8px 0; border: 1px solid #333; }
         
         .btn-group { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }
-        .action-btn { font-size: 11px; color: #00a884; cursor: pointer; font-weight: bold; text-transform: uppercase; }
+        
+        /* HYBRID FIX: Chrome/Via/Xmini Selection Fix */
+        .action-btn, .round-btn { 
+            font-size: 11px; color: #00a884; cursor: pointer; font-weight: bold; text-transform: uppercase;
+            -webkit-user-select: none; user-select: none; 
+            -webkit-tap-highlight-color: transparent; outline: none;
+        }
 
         .input-area { background: #202c33; padding: 10px; display: flex; align-items: center; gap: 8px; }
         input { flex: 1; background: #2a3942; border: none; padding: 12px 15px; border-radius: 25px; color: white; outline: none; }
         
-        .round-btn { background: #00a884; border: none; width: 45px; height: 45px; border-radius: 50%; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; }
-        #mic-btn { background: #3b4a54; }
+        .round-btn { background: #00a884; border: none; width: 45px; height: 45px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        #mic-btn { background: #3b4a54; transition: 0.3s; }
         
         .typing { font-size: 12px; color: #00a884; display: none; margin-left: 10px; }
         img { border-radius: 10px; margin-top: 8px; max-width: 100%; }
@@ -79,7 +85,7 @@
     const chatBox = document.getElementById('chat-container');
     const userInput = document.getElementById('user-input');
 
-    // 2. Voice Recognition (Voice Typing)
+    // 2. Hybrid Voice Recognition (Append Logic)
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 
@@ -97,14 +103,8 @@
             document.getElementById('mic-btn').style.background = "#3b4a54";
         };
 
-        recognition.onspeechend = () => { 
-            recognition.stop(); 
-            document.getElementById('mic-btn').style.background = "#3b4a54"; 
-        };
-
-        recognition.onerror = () => { 
-            document.getElementById('mic-btn').style.background = "#3b4a54";
-        };
+        recognition.onspeechend = () => { recognition.stop(); document.getElementById('mic-btn').style.background = "#3b4a54"; };
+        recognition.onerror = () => { document.getElementById('mic-btn').style.background = "#3b4a54"; };
     }
 
     // 3. UI and Logic
@@ -160,7 +160,7 @@
         addBubble(`<img src="${url}">`, 'bot');
     }
 
-    // 4. SMART COPY & SPEAK (Hybrid Support for Redmi 4A)
+    // 4. Hybrid Copy & Listen Fix (For Redmi 4A / Chrome / Via / Xmini)
     function copyToClipboard(btn) {
         const text = btn.closest('.bubble').querySelector('.text-content').innerText;
         if (navigator.clipboard && window.isSecureContext) {
@@ -185,24 +185,28 @@
     }
 
     function speakText(text) {
-        window.speechSynthesis.cancel();
+        if (!window.speechSynthesis) return;
+        window.speechSynthesis.cancel(); // पुरानी लाइन साफ़ करें
+
         const cleanText = text.replace(/```[\s\S]*?```/g, "Code Block");
         const s = new SpeechSynthesisUtterance(cleanText);
         s.lang = 'hi-IN';
         s.rate = 1.0;
-        
-        // Mobile Browser 'Wake up' logic
-        window.speechSynthesis.resume(); 
-        window.speechSynthesis.speak(s);
 
-        // Fix for old Android devices stuck in pause
-        let speechFix = setInterval(() => {
+        // Chrome/Via/Xmini 'Resume' हैक
+        setTimeout(() => {
+            window.speechSynthesis.resume();
+            window.speechSynthesis.speak(s);
+        }, 100);
+
+        // आवाज़ अटकने पर धक्का देने वाला टाइमर
+        let fixSpeech = setInterval(() => {
             if (window.speechSynthesis.speaking) window.speechSynthesis.resume();
-            else clearInterval(speechFix);
+            else clearInterval(fixSpeech);
         }, 3000);
     }
 
     userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMsg(); });
 </script>
 </body>
-</html>
+    </html>
