@@ -17,7 +17,6 @@ function startVoiceTyping() {
         userInput.value = oldText !== "" ? oldText + " " + transcript : transcript;
     };
 
-    // यह हिस्सा जोड़ें
     recognition.onspeechend = () => { 
         recognition.stop(); 
         document.getElementById('mic-btn').style.background = "#3b4a54"; 
@@ -26,24 +25,49 @@ function startVoiceTyping() {
     recognition.onerror = () => { document.getElementById('mic-btn').style.background = "#3b4a54"; };
 }
 
-function speakText(text) {
+async function speakText(text) {
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     window.speechSynthesis.cancel();
+
     let cleanText = text.replace(/```[\s\S]*?```/g, "Code Block").trim();
+    
     speechQueue = cleanText.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
     if (speechQueue.length === 0 && cleanText.length > 0) speechQueue = [cleanText];
+    
     queueIndex = 0;
     playNextChunk();
 }
 
-function playNextChunk() {
-    if (queueIndex >= speechQueue.length) return;
+// यह नया Fetch वाला फंक्शन है जो "झाड़ू बटन" से ऑडियो को बचाएगा
+async function playNextChunk() {
+    if (queueIndex >= speechQueue.length) {
+        currentAudio = null;
+        return;
+    }
+    
     let chunk = speechQueue[queueIndex].trim();
     const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=hi&client=tw-ob`;
-    currentAudio = new Audio(voiceUrl);
-    currentAudio.onended = () => { queueIndex++; playNextChunk(); };
-    currentAudio.onerror = () => { fallbackToSystemTTS(chunk); queueIndex++; playNextChunk(); };
-    currentAudio.play();
+
+    try {
+        const response = await fetch(voiceUrl);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
+        currentAudio = new Audio(blobUrl);
+        
+        currentAudio.onended = () => {
+            URL.revokeObjectURL(blobUrl); // मेमोरी साफ़ करने के लिए
+            queueIndex++;
+            playNextChunk();
+        };
+
+        currentAudio.play();
+    } catch (e) {
+        console.log("Blob failed, falling back to system TTS");
+        fallbackToSystemTTS(chunk);
+        queueIndex++;
+        playNextChunk();
+    }
 }
 
 function speakFromBubble(btn) {
