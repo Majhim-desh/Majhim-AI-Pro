@@ -11,11 +11,18 @@ function startVoiceTyping() {
     recognition.lang = 'hi-IN';
     recognition.start();
     document.getElementById('mic-btn').style.background = "#ea0038";
+    
     recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         userInput.value = oldText !== "" ? oldText + " " + transcript : transcript;
-        document.getElementById('mic-btn').style.background = "#3b4a54";
     };
+
+    // यह हिस्सा जोड़ें
+    recognition.onspeechend = () => { 
+        recognition.stop(); 
+        document.getElementById('mic-btn').style.background = "#3b4a54"; 
+    };
+
     recognition.onerror = () => { document.getElementById('mic-btn').style.background = "#3b4a54"; };
 }
 
