@@ -1,48 +1,72 @@
-// 3. Voice & Utility Logic
+// 3. Voice & Utility Logic (Pro Version)
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 let currentAudio = null;
+let speechQueue = [];
+let queueIndex = 0;
 
-function startVoiceTyping() {
-    if (!recognition) { alert("Voice typing not supported."); return; }
-    let oldText = userInput.value.trim();
-    recognition.lang = 'hi-IN';
-    recognition.start();
-    document.getElementById('mic-btn').style.background = "#ea0038";
-    recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        userInput.value = oldText !== "" ? oldText + " " + transcript : transcript;
-    };
-    recognition.onspeechend = () => { 
-        recognition.stop(); 
-        document.getElementById('mic-btn').style.background = "#3b4a54"; 
-    };
-    recognition.onerror = () => { document.getElementById('mic-btn').style.background = "#3b4a54"; };
+async function playNextChunk() {
+    if (queueIndex >= speechQueue.length) {
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "none";
+        return;
+    }
+    
+    let chunk = speechQueue[queueIndex].trim();
+    const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=hi&client=tw-ob`;
+
+    try {
+        const response = await fetch(voiceUrl);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
+        currentAudio = new Audio(blobUrl);
+        
+        // --- जादू यहाँ है (Media Session API) ---
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: 'Majhim AI Pro बोल रहा है...',
+                artist: 'Majhim Desh',
+                album: 'AI Voice Service'
+            });
+            navigator.mediaSession.playbackState = "playing";
+        }
+
+        currentAudio.onended = () => {
+            URL.revokeObjectURL(blobUrl);
+            queueIndex++;
+            playNextChunk();
+        };
+
+        currentAudio.play();
+    } catch (e) {
+        fallbackToSystemTTS(chunk);
+        queueIndex++;
+        playNextChunk();
+    }
 }
 
 async function speakText(text) {
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     window.speechSynthesis.cancel();
-
     let cleanText = text.replace(/```[\s\S]*?```/g, "Code Block").trim();
-    if (!cleanText) return;
+    speechQueue = cleanText.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+    if (speechQueue.length === 0 && cleanText.length > 0) speechQueue = [cleanText];
+    queueIndex = 0;
+    playNextChunk();
+}
 
-    // Google TTS की 200 अक्षर की लिमिट को संभालने के लिए
-    // हम सिर्फ पहले 200 अक्षरों का एक ही 'मजबूत' ऑडियो बनाएंगे
-    let shortText = cleanText.substring(0, 200);
-    const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(shortText)}&tl=hi&client=tw-ob`;
-
-    try {
-        currentAudio = new Audio(voiceUrl);
-        
-        // सिस्टम को भ्रमित करने के लिए कि यह एक 'Media' चल रहा है
-        currentAudio.play().catch(e => {
-            fallbackToSystemTTS(cleanText);
-        });
-
-    } catch (e) {
-        fallbackToSystemTTS(cleanText);
-    }
+function startVoiceTyping() {
+    if (!recognition) { alert("Voice typing not supported."); return; }
+    recognition.lang = 'hi-IN';
+    recognition.start();
+    document.getElementById('mic-btn').style.background = "#ea0038";
+    recognition.onresult = (event) => {
+        userInput.value += event.results[0][0].transcript;
+    };
+    recognition.onspeechend = () => {
+        recognition.stop();
+        document.getElementById('mic-btn').style.background = "#3b4a54";
+    };
 }
 
 function speakFromBubble(btn) {
@@ -53,8 +77,6 @@ function speakFromBubble(btn) {
 function fallbackToSystemTTS(text) {
     const s = new SpeechSynthesisUtterance(text);
     s.lang = 'hi-IN';
-    // 'resume' करना ज़रूरी है वरना सिस्टम TTS कभी-कभी अटक जाता है
-    window.speechSynthesis.resume(); 
     window.speechSynthesis.speak(s);
 }
 
