@@ -12,12 +12,11 @@ function playNextChunk() {
     }
     
     let chunk = speechQueue[queueIndex].trim();
-    // Fetch हटाकर सीधा URL इस्तेमाल करेंगे ताकि देरी न हो
     const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=hi&client=tw-ob`;
 
     currentAudio = new Audio(voiceUrl);
 
-    // मीडिया सेशन को तुरंत चालू करें ताकि सिस्टम इसे 'Music' समझे
+    // Media Session: ताकि नोटिफिकेशन पैनल में प्लेयर दिखे और झाड़ू मारने पर आवाज़ न रुके
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
             title: 'Majhim AI Pro बोल रहा है...',
@@ -38,20 +37,17 @@ function playNextChunk() {
         playNextChunk();
     };
 
-    // 'play' को तुरंत कॉल करें
-    currentAudio.play().catch(e => {
-        console.log("Auto-play blocked, using fallback");
-        fallbackToSystemTTS(chunk);
-    });
+    currentAudio.play().catch(e => fallbackToSystemTTS(chunk));
 }
 
 function speakText(text) {
+    // पुरानी आवाज़ को तुरंत रोकें
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     window.speechSynthesis.cancel();
     
     let cleanText = text.replace(/```[\s\S]*?```/g, "Code Block").trim();
     
-    // टुकड़े थोड़े बड़े रखें ताकि 'Next Chunk' का लोड कम पड़े
+    // वाक्यों को टुकड़ों में बाँटना
     speechQueue = cleanText.split(/(?<=[।!?])\s+/).filter(s => s.trim().length > 0);
     if (speechQueue.length === 0 && cleanText.length > 0) speechQueue = [cleanText];
     
@@ -64,13 +60,17 @@ function startVoiceTyping() {
     recognition.lang = 'hi-IN';
     recognition.start();
     document.getElementById('mic-btn').style.background = "#ea0038";
+    
     recognition.onresult = (event) => {
         userInput.value += event.results[0][0].transcript;
     };
+    
     recognition.onspeechend = () => {
         recognition.stop();
         document.getElementById('mic-btn').style.background = "#3b4a54";
     };
+    
+    recognition.onerror = () => { document.getElementById('mic-btn').style.background = "#3b4a54"; };
 }
 
 function fallbackToSystemTTS(text) {
@@ -90,4 +90,4 @@ function copyToClipboard(btn) {
         const old = btn.innerText; btn.innerText = "COPIED ✅";
         setTimeout(() => btn.innerText = old, 2000);
     });
-}
+            }
