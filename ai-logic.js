@@ -15,17 +15,26 @@ function addBubble(text, sender) {
     const div = document.createElement('div');
     div.className = `msg ${sender}`;
     let content = text;
+    
     if (sender === 'bot') {
-        content = text.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => `<pre><code class="language-${lang || 'javascript'}">${code.trim()}</code></pre>`);
+        content = text.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => 
+            `<pre><code class="language-${lang || 'javascript'}">${code.trim()}</code></pre>`);
     }
+
     const buttons = sender === 'bot' ? `
         <div class="btn-group">
             <span class="action-btn" onclick="speakFromBubble(this)">Listen 🔊</span>
             <span class="action-btn" onclick="copyToClipboard(this)">Copy Text</span>
         </div>` : '';
+
     div.innerHTML = `<div class="bubble"><div class="text-content">${content}</div>${buttons}</div>`;
     chatBox.appendChild(div);
-    if (sender === 'bot') Prism.highlightAllUnder(div);
+
+    if (sender === 'bot') {
+        // RAM बचाने के लिए Prism को थोड़ा रुक कर चलाएं
+        setTimeout(() => Prism.highlightAllUnder(div), 100);
+    }
+    
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
@@ -40,8 +49,9 @@ async function callChatGPT(query) {
         });
         const data = await res.json();
         const reply = data.choices[0].message.content;
+        
         addBubble(reply, 'bot');
-        speakText(reply);
+        // speakText(reply);  <-- इसे हटा दिया है ताकि डबल आवाज़ न आए
     } catch (e) { console.error(e); }
     document.getElementById('typing-ui').style.display = 'none';
 }
@@ -49,7 +59,7 @@ async function callChatGPT(query) {
 async function generateAIImage(prompt) {
     addBubble("🎨 Drawing...", 'bot');
     const url = `https://pollinations.ai/p/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Math.random()}`;
-    addBubble(`<img src="${url}">`, 'bot');
+    addBubble(`<img src="${url}" style="width:100%; border-radius:10px;">`, 'bot');
 }
 
 userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMsg(); });
