@@ -26,6 +26,16 @@ function startVoiceTyping() {
     recognition.onerror = () => { document.getElementById('mic-btn').style.background = "#3b4a54"; };
 }
 
+function speakText(text) {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    window.speechSynthesis.cancel();
+    let cleanText = text.replace(/```[\s\S]*?```/g, "Code Block").trim();
+    speechQueue = cleanText.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+    if (speechQueue.length === 0 && cleanText.length > 0) speechQueue = [cleanText];
+    queueIndex = 0;
+    playNextChunk();
+}
+
 function playNextChunk() {
     if (queueIndex >= speechQueue.length) return;
     let chunk = speechQueue[queueIndex].trim();
