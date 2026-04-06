@@ -1,4 +1,4 @@
-// 3. Voice & Utility Logic (Ultrafast Pro Version)
+// 3. Voice & Utility Logic (Fixed Version)
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 let currentAudio = null;
@@ -16,7 +16,6 @@ function playNextChunk() {
 
     currentAudio = new Audio(voiceUrl);
 
-    // Media Session: ताकि नोटिफिकेशन पैनल में प्लेयर दिखे और झाड़ू मारने पर आवाज़ न रुके
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
             title: 'Majhim AI Pro बोल रहा है...',
@@ -41,18 +40,26 @@ function playNextChunk() {
 }
 
 function speakText(text) {
-    // पुरानी आवाज़ को तुरंत रोकें
-    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    // 1. पुरानी आवाज़ और कतार को पूरी तरह रोकें
+    if (currentAudio) { 
+        currentAudio.pause(); 
+        currentAudio.currentTime = 0;
+        currentAudio = null; 
+    }
     window.speechSynthesis.cancel();
+    
+    // कतार को रिसेट करना अनिवार्य है
+    speechQueue = []; 
+    queueIndex = 0;
     
     let cleanText = text.replace(/```[\s\S]*?```/g, "Code Block").trim();
     
-    // वाक्यों को टुकड़ों में बाँटना
+    // 2. वाक्यों को टुकड़ों में बाँटना
     speechQueue = cleanText.split(/(?<=[।!?])\s+/).filter(s => s.trim().length > 0);
     if (speechQueue.length === 0 && cleanText.length > 0) speechQueue = [cleanText];
     
-    queueIndex = 0;
-    playNextChunk();
+    // 3. बोलना शुरू करें
+    if (speechQueue.length > 0) playNextChunk();
 }
 
 function startVoiceTyping() {
@@ -60,16 +67,13 @@ function startVoiceTyping() {
     recognition.lang = 'hi-IN';
     recognition.start();
     document.getElementById('mic-btn').style.background = "#ea0038";
-    
     recognition.onresult = (event) => {
         userInput.value += event.results[0][0].transcript;
     };
-    
     recognition.onspeechend = () => {
         recognition.stop();
         document.getElementById('mic-btn').style.background = "#3b4a54";
     };
-    
     recognition.onerror = () => { document.getElementById('mic-btn').style.background = "#3b4a54"; };
 }
 
@@ -90,4 +94,4 @@ function copyToClipboard(btn) {
         const old = btn.innerText; btn.innerText = "COPIED ✅";
         setTimeout(() => btn.innerText = old, 2000);
     });
-            }
+}
