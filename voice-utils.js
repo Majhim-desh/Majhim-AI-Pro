@@ -1,15 +1,18 @@
-// 3. Voice & Utility Logic (The Bulletproof Version)
+// 3. Voice & Utility Logic (The Final Perfection Version)
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 let currentAudio = null;
 let speechQueue = [];
 let queueIndex = 0;
-let isSpeaking = false; // 🔥 The Ultimate Gatekeeper
+let isSpeaking = false; 
+let useFallback = false; 
 
 function playNextChunk() {
+    // 🏁 Safety Exit: अगर कतार खत्म हो गई है
     if (queueIndex >= speechQueue.length) {
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "none";
-        isSpeaking = false; // बोलना खत्म, लॉक खोलें
+        isSpeaking = false; 
+        useFallback = false; 
         return;
     }
 
@@ -20,10 +23,21 @@ function playNextChunk() {
         return;
     }
 
+    // --- 🔊 HYBRID LOGIC ---
+    if (useFallback) {
+        fallbackSpeak(chunk);
+        return;
+    }
+
     const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=hi&client=tw-ob`;
 
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.src = "";
+    }
+
     currentAudio = new Audio(voiceUrl);
-    currentAudio.preload = "auto"; // 🚀 Bonus: Fast Loading
+    currentAudio.preload = "auto";
 
     if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -33,38 +47,60 @@ function playNextChunk() {
         navigator.mediaSession.playbackState = "playing";
     }
 
+    // 🔧 FIX 2: onended में safety reset
     currentAudio.onended = () => {
         queueIndex++;
+        if (queueIndex >= speechQueue.length) isSpeaking = false; 
         playNextChunk();
     };
 
     currentAudio.onerror = () => {
-        queueIndex++;
-        playNextChunk();
+        console.log("🔁 Switching to System Voice");
+        useFallback = true; 
+        fallbackSpeak(chunk);
     };
 
     currentAudio.play().catch(() => {
-        queueIndex++;
-        playNextChunk();
+        useFallback = true;
+        fallbackSpeak(chunk);
     });
 }
 
-function speakText(text) {
-    // 🔥 Guard Logic: अगर पहले से बोल रहा है, तो पहले पूरी तरह सफ़ाई करें
-    if (isSpeaking) {
-        if (currentAudio) {
-            currentAudio.pause();
-            currentAudio.currentTime = 0;
-            currentAudio = null;
-        }
-        window.speechSynthesis.cancel();
-    }
+function fallbackSpeak(text) {
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'hi-IN';
 
-    // Reset everything for the new request
+    utter.onend = () => {
+        queueIndex++;
+        if (queueIndex >= speechQueue.length) isSpeaking = false; 
+        playNextChunk();
+    };
+
+    // 🔧 FIX 1: rare infinite loop रोकना
+    utter.onerror = () => {
+        queueIndex++;
+        if (queueIndex >= speechQueue.length) isSpeaking = false; 
+        playNextChunk();
+    };
+
+    window.speechSynthesis.speak(utter);
+}
+
+function speakText(text) {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.src = "";
+        currentAudio = null;
+    }
+    window.speechSynthesis.cancel();
+    
     speechQueue = [];
     queueIndex = 0;
+    useFallback = false; 
 
-    let cleanText = text.replace(/```[\s\S]*?```/g, "").trim();
+    // कोड ब्लॉक्स को बोलने से बचाएं
+    let cleanText = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक").trim();
     if (!cleanText) {
         isSpeaking = false;
         return;
@@ -73,19 +109,16 @@ function speakText(text) {
     speechQueue = cleanText.split(/(?<=[।!?])\s+/).filter(s => s.trim().length > 0);
     if (speechQueue.length === 0) speechQueue = [cleanText];
 
-    isSpeaking = true; // Lock it!
+    isSpeaking = true; 
     playNextChunk();
 }
 
 function speakFromBubble(btn) {
-    // 🔥 Double-click block: जब बोल रहा हो, तो नया ट्रिगर न हो
-    if (isSpeaking) return; 
-
     const text = btn.closest('.bubble').querySelector('.text-content').innerText;
     speakText(text);
 }
 
-// --- Standard Utilities (Mic & Copy) ---
+// --- Mic & Copy Utilities ---
 function startVoiceTyping() {
     if (!recognition) { alert("Voice typing not supported."); return; }
     recognition.lang = 'hi-IN';
