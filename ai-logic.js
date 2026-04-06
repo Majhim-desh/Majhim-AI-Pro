@@ -31,7 +31,6 @@ function addBubble(text, sender) {
     chatBox.appendChild(div);
 
     if (sender === 'bot') {
-        // RAM बचाने के लिए Prism को थोड़ा रुक कर चलाएं
         setTimeout(() => Prism.highlightAllUnder(div), 100);
     }
     
@@ -51,7 +50,7 @@ async function callChatGPT(query) {
         const reply = data.choices[0].message.content;
         
         addBubble(reply, 'bot');
-        // speakText(reply);  <-- इसे हटा दिया है ताकि डबल आवाज़ न आए
+        // speakText(reply); <-- यहाँ से हटा दिया गया है
     } catch (e) { console.error(e); }
     document.getElementById('typing-ui').style.display = 'none';
 }
