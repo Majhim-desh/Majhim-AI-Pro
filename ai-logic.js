@@ -16,9 +16,15 @@ function addBubble(text, sender) {
     div.className = `msg ${sender}`;
     let content = text;
     
-    if (sender === 'bot') {
-        content = text.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => 
-            `<pre><code class="language-${lang || 'javascript'}">${code.trim()}</code></pre>`);
+    if (sender === 'bot') {        
+       content = text.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => {
+    const cleanCode = code.trim();
+    return `
+    <div class="code-block">
+        <button class="copy-code-btn" onclick="copyCode(this)">Copy Code</button>
+        <pre><code class="language-${lang || 'javascript'}">${cleanCode}</code></pre>
+    </div>`;
+});
     }
 
     const buttons = sender === 'bot' ? `
