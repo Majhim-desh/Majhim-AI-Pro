@@ -149,3 +149,12 @@ function copyToClipboard(btn) {
         setTimeout(() => btn.innerText = old, 2000);
     });
     }
+function copyCode(btn) {
+    const code = btn.parentElement.querySelector("code").innerText;
+    
+    navigator.clipboard.writeText(code).then(() => {
+        const old = btn.innerText;
+        btn.innerText = "Copied ✅";
+        setTimeout(() => btn.innerText = old, 2000);
+    });
+}
