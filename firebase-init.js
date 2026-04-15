@@ -1,4 +1,4 @@
-// 1. Firebase Config (API Key यहाँ से हटा दी गई है)
+// 1. Firebase Config (API Key यहाँ से हटा दी गई है सुरक्षा के लिए)
 const firebaseConfig = {
     authDomain: "majhim-ai.firebaseapp.com",
     projectId: "majhim-ai",
@@ -7,7 +7,7 @@ const firebaseConfig = {
     appId: "1:361749678090:web:ed1668151fbe935fecb7f3"
 };
 
-// Initialize Firebase (शुरुआत में बिना Key के)
+// Initialize Firebase (बिना Key के)
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -15,28 +15,34 @@ if (!firebase.apps.length) {
 const remoteConfig = firebase.remoteConfig();
 remoteConfig.settings.minimumFetchIntervalMillis = 0;
 
-// Auth और Provider को Global रखें ताकि सब जगह इस्तेमाल हो सकें
+// ग्लोबल वेरिएबल्स
 let auth;
 let provider;
 
-// 🔑 मुख्य फंक्शन: जो चाबियां लाएगा और सब सेटअप करेगा
+// 🔑 मुख्य फंक्शन: जो रिमोट से चाबी लाएगा और सिस्टम चालू करेगा
 async function setupSystem() {
     try {
-        // Remote Config से डेटा मंगाएं
         await remoteConfig.fetchAndActivate();
         
-        // 1. Firebase API Key निकालें और सेट करें
+        // Firebase API Key को Remote Config से मंगाना
         const fbKey = remoteConfig.getValue('FIREBASE_API_KEY').asString();
+        
+        if (!fbKey) {
+            console.error("API Key नहीं मिली! Firebase में FIREBASE_API_KEY चेक करें।");
+            return;
+        }
+
+        // चाबी को ऐप में सेट करना
         firebase.app().options.apiKey = fbKey;
         
-        // अब Auth चालू करें क्योंकि अब हमारे पास चाबी है
+        // अब Auth और Provider को एक्टिव करें
         auth = firebase.auth();
         provider = new firebase.auth.GoogleAuthProvider();
         
-        // Auth State चेक करना शुरू करें
+        // लॉगिन की स्थिति पर नज़र रखें
         observeAuth();
         
-        console.log("System Ready: All Keys Loaded!");
+        console.log("Majhim AI Security: Active ✅");
     } catch (err) {
         console.error("Setup Error:", err);
     }
@@ -45,7 +51,7 @@ async function setupSystem() {
 // सिस्टम शुरू करें
 setupSystem();
 
-// 🔑 AI Key (Groq/OpenAI) लाने वाला फंक्शन (पुराना ही है)
+// 🔑 AI Key लाने वाला फंक्शन (जो ai-logic.js इस्तेमाल करेगा)
 async function getAIKey() {
     try { 
         await remoteConfig.fetchAndActivate(); 
@@ -53,22 +59,28 @@ async function getAIKey() {
     } catch (err) { return null; }
 }
 
-// 🔓 LOGIN FUNCTION
+// 🔓 LOGIN FUNCTION (जब बटन दबेगा)
 function login() {
-    if (!auth) return alert("System initializing... please wait.");
+    if (!auth) {
+        alert("सिस्टम चालू हो रहा है, कृपया 2 सेकंड रुकें...");
+        return;
+    }
     auth.signInWithPopup(provider).then((result) => {
-        console.log("Logged In as:", result.user.displayName);
+        console.log("Logged In:", result.user.displayName);
     }).catch((error) => {
         console.error("Login Error:", error.message);
+        alert("लॉगिन फेल हुआ: " + error.message);
     });
 }
 
 // 🔒 LOGOUT FUNCTION
 function logout() {
-    if (auth) auth.signOut();
+    if (auth) {
+        auth.signOut();
+    }
 }
 
-// 🔄 AUTH STATE OBSERVER (इसे एक फंक्शन में डाल दिया ताकि चाबी आने के बाद चले)
+// 🔄 AUTH STATE OBSERVER (बटन और नाम ऑटोमैटिक बदलेगा)
 function observeAuth() {
     auth.onAuthStateChanged((user) => {
         const loginBtn = document.getElementById('login-btn');
@@ -79,7 +91,7 @@ function observeAuth() {
             if (loginBtn) loginBtn.style.display = 'none';
             if (userProfile) {
                 userProfile.style.display = 'flex';
-                userName.innerText = user.displayName.split(' ')[0];
+                userName.innerText = user.displayName.split(' ')[0]; 
             }
         } else {
             if (loginBtn) loginBtn.style.display = 'block';
