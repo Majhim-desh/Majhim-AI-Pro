@@ -59,20 +59,31 @@ async function getAIKey() {
     } catch (err) { return null; }
 }
 
-// 🔓 LOGIN FUNCTION (जब बटन दबेगा)
-function login() {
+// 🔓 अपडेटेड LOGIN FUNCTION 
+async function login() {
+    console.log("Login button clicked");
+    
     if (!auth) {
-        alert("सिस्टम चालू हो रहा है, कृपया 2 सेकंड रुकें...");
+        alert("सिस्टम थोड़ा समय ले रहा है, एक बार फिर दबाएं...");
+        await setupSystem(); // चाबी लाने की दोबारा कोशिश
         return;
     }
-    auth.signInWithPopup(provider).then((result) => {
-        console.log("Logged In:", result.user.displayName);
-    }).catch((error) => {
-        console.error("Login Error:", error.message);
-        alert("लॉगिन फेल हुआ: " + error.message);
-    });
-}
 
+    try {
+        // गूगल पॉपअप खोलने की कोशिश
+        await auth.signInWithPopup(provider);
+        console.log("Popup opened successfully");
+    } catch (error) {
+        console.error("Popup Error:", error.message);
+        
+        // पॉपअप ब्लॉक होने पर गाइड करें
+        if (error.code === 'auth/popup-blocked' || error.message.includes('popup')) {
+            alert("पॉपअप ब्लॉक है! कृपया Chrome की सेटिंग में जाकर Pop-ups को 'Allow' करें।");
+        } else {
+            alert("लॉगिन एरर: " + error.message);
+        }
+    }
+}
 // 🔒 LOGOUT FUNCTION
 function logout() {
     if (auth) {
