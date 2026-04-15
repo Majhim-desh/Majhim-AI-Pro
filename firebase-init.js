@@ -1,5 +1,7 @@
+// ✅ FINAL FIREBASE SETUP (WORKING)
+
 const firebaseConfig = {
-    apiKey: "YOUR_FIREBASE_API_KEY",
+    apiKey: "YOUR_REAL_API_KEY", // 🔥 अपनी असली key डालो
     authDomain: "majhim-ai.firebaseapp.com",
     projectId: "majhim-ai",
     storageBucket: "majhim-ai.firebasestorage.app",
@@ -12,14 +14,24 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const provider = new firebase.auth.GoogleAuthProvider();
 
+// ✅ LOGIN (Redirect method - GitHub pages friendly)
 function login() {
     auth.signInWithRedirect(provider);
 }
 
-function logout() {
-    auth.signOut();
-}
+// ✅ PAGE LOAD पर RESULT HANDLE करो
+window.onload = async () => {
+    try {
+        const result = await auth.getRedirectResult();
+        if (result.user) {
+            console.log("Login Success:", result.user.displayName);
+        }
+    } catch (error) {
+        console.error("Login Error:", error);
+    }
+};
 
+// ✅ AUTO STATE
 auth.onAuthStateChanged((user) => {
     const loginBtn = document.getElementById('login-btn');
 
@@ -29,3 +41,8 @@ auth.onAuthStateChanged((user) => {
         if (loginBtn) loginBtn.innerText = "Login";
     }
 });
+
+// ✅ LOGOUT
+function logout() {
+    auth.signOut();
+}
