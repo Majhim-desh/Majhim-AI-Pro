@@ -85,3 +85,23 @@ function observeAuth() {
         }
     });
 }
+
+// 🔑 AI Key लाने वाला फंक्शन (Groq के लिए)
+async function getAIKey() {
+    try { 
+        // सबसे पहले ये पक्का करें कि Remote Config लोड हो चुका है
+        await remoteConfig.fetchAndActivate(); 
+        
+        const key = remoteConfig.getValue('OPENAI_API_KEY').asString();
+        
+        // अगर चाबी खाली मिले, तो console में एरर दिखाओ (Debugging के लिए)
+        if (!key) {
+            console.error("Firebase Console में OPENAI_API_KEY नहीं मिली!");
+        }
+        
+        return key; 
+    } catch (err) { 
+        console.error("Remote Config Error:", err);
+        return null; 
+    }
+    }
