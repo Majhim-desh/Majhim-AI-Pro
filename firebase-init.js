@@ -85,11 +85,3 @@ function observeAuth() {
         }
     });
 }
-
-// 🔑 AI Key लाने वाला फंक्शन (Groq के लिए)
-async function getAIKey() {
-    try { 
-        await remoteConfig.fetchAndActivate(); 
-        return remoteConfig.getValue('OPENAI_API_KEY').asString(); 
-    } catch (err) { return null; }
-}
