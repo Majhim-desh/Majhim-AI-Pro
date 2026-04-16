@@ -116,7 +116,6 @@ async function getAIKey() {
     }
 }
 
-
 // यह चेक करने के लिए कि क्या Remote Config काम कर रहा है
 setTimeout(async () => {
     const testKey = await getAIKey();
