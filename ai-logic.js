@@ -43,25 +43,38 @@ function addBubble(text, sender) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// ✅ 1. AI को मैसेज भेजने का फंक्शन (Groq API)
+// ✅ 1. AI को मैसेज भेजने का फंक्शन (With Retry & Wait Logic)
 async function callChatGPT(query) {
-    // टाइपिंग इंडिकेटर दिखाओ
     const typingUI = document.getElementById('typing-ui');
     if (typingUI) typingUI.style.display = 'inline';
 
     try {
-        // 🔥 सबसे पहले Remote Config से API Key मंगाओ
-        const key = await getAIKey();
-        
-        // अगर चाबी नहीं मिली तो मैसेज दिखाओ और रुक जाओ
+        let key = null;
+        let attempts = 0;
+        const maxAttempts = 3;
+
+        // 🔄 RETRY LOOP: जब तक चाबी न मिले, कोशिश करते रहो
+        while (!key && attempts < maxAttempts) {
+            console.log(`Key fetch attempt: ${attempts + 1}`);
+            key = await getAIKey(); 
+            
+            if (!key) {
+                attempts++;
+                if (attempts < maxAttempts) {
+                    // अगर चाबी नहीं मिली, तो 1.5 सेकंड रुको और फिर कोशिश करो
+                    await new Promise(res => setTimeout(res, 1500)); 
+                }
+            }
+        }
+
+        // अगर 3 कोशिशों के बाद भी चाबी न मिले
         if (!key) {
-            console.error("AI Key Missing!");
-            addBubble("भाई, API Key लोड नहीं हो पाई। पेज रिफ्रेश करके देखो।", 'bot');
+            addBubble("भाई, API Key लोड नहीं हो पाई। थोड़ा इंतज़ार करके पेज रिफ्रेश करो।", 'bot');
             if (typingUI) typingUI.style.display = 'none';
             return;
         }
 
-        // Groq API को कॉल करें
+        // 🚀 असली API कॉल (जब चाबी मिल जाए)
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 
@@ -79,35 +92,35 @@ async function callChatGPT(query) {
         if (data.choices && data.choices[0]) {
             const reply = data.choices[0].message.content;
             addBubble(reply, 'bot');
-            // अगर आप आवाज़ चाहते हैं तो यहाँ speakText(reply) जोड़ सकते हैं
         } else {
             addBubble("AI से जवाब नहीं मिल पाया, दोबारा कोशिश करें।", 'bot');
         }
 
     } catch (e) { 
         console.error("Chat Error:", e);
-        addBubble("नेटवर्क में कुछ गड़बड़ है भाई, इंटरनेट चेक करो!", 'bot');
+        addBubble("नेटवर्क में कुछ गड़बड़ है भाई, इंटरनेट चेक करो!", 'bot');
     }
 
-    // टाइपिंग इंडिकेटर छुपाओ
+    // काम खत्म होने पर टाइपिंग इंडिकेटर छुपाओ
     if (typingUI) typingUI.style.display = 'none';
 }
 
 // ✅ 2. इमेज बनाने का फंक्शन
 async function generateAIImage(prompt) {
-    document.getElementById('typing-ui').style.display = 'none'; // इसे जोड़ दो
+    const typingUI = document.getElementById('typing-ui');
+    if (typingUI) typingUI.style.display = 'none'; 
+    
     addBubble("🎨 Drawing...", 'bot');
     const url = `https://pollinations.ai/p/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Math.random()}`;
     addBubble(`<img src="${url}" style="width:100%; border-radius:10px; margin-top:10px;" alt="AI Generated">`, 'bot');
 }
 
 // ✅ 3. कीबोर्ड का 'Enter' बटन सपोर्ट
-// सुनिश्चित करें कि 'user-input' आपके HTML में सही ID है
 const inputField = document.getElementById('user-input');
 if (inputField) {
     inputField.addEventListener("keypress", (e) => { 
         if (e.key === "Enter") {
-            sendMsg(); // यह आपके main script में होना चाहिए
+            sendMsg();
         }
     });
 }
