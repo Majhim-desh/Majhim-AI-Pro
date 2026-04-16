@@ -87,16 +87,24 @@ function observeAuth() {
 }
 
 // 🔑 AI Key लाने वाला फंक्शन (Groq के लिए)
+// 🔑 AI Key लाने वाला फंक्शन (Groq के लिए) - IMPROVED
 async function getAIKey() {
     try { 
-        // सबसे पहले ये पक्का करें कि Remote Config लोड हो चुका है
+        // 1. पक्का करें कि डेटा ताज़ा हो (0 सेकंड का वेट)
+        remoteConfig.settings.minimumFetchIntervalMillis = 0;
+        
+        // 2. डेटा फेच करें और उसे एक्टिवेट करें
         await remoteConfig.fetchAndActivate(); 
         
+        // 3. वैल्यू निकालें
         const key = remoteConfig.getValue('OPENAI_API_KEY').asString();
         
-        // अगर चाबी खाली मिले, तो console में एरर दिखाओ (Debugging के लिए)
+        // 4. अगर फिर भी न मिले, तो एक बार और कोशिश करें (Slight Delay)
         if (!key) {
-            console.error("Firebase Console में OPENAI_API_KEY नहीं मिली!");
+            console.log("Retrying key fetch...");
+            await new Promise(res => setTimeout(res, 1000)); // 1 सेकंड रुकें
+            await remoteConfig.activate();
+            return remoteConfig.getValue('OPENAI_API_KEY').asString();
         }
         
         return key; 
@@ -104,4 +112,4 @@ async function getAIKey() {
         console.error("Remote Config Error:", err);
         return null; 
     }
-    }
+}
