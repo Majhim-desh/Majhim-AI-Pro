@@ -115,3 +115,12 @@ async function getAIKey() {
         return null; 
     }
 }
+
+
+// यह चेक करने के लिए कि क्या Remote Config काम कर रहा है
+setTimeout(async () => {
+    const testKey = await getAIKey();
+    console.log("Testing Key on Load:", testKey);
+    if(testKey) alert("बधाई हो! चाबी मिल गई: " + testKey.substring(0,5) + "...");
+    else alert("अभी भी खाली है भाई! ❌");
+}, 3000);
