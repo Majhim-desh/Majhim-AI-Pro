@@ -95,6 +95,7 @@ async function callChatGPT(query) {
 
 // ✅ 2. इमेज बनाने का फंक्शन
 async function generateAIImage(prompt) {
+    document.getElementById('typing-ui').style.display = 'none'; // इसे जोड़ दो
     addBubble("🎨 Drawing...", 'bot');
     const url = `https://pollinations.ai/p/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Math.random()}`;
     addBubble(`<img src="${url}" style="width:100%; border-radius:10px; margin-top:10px;" alt="AI Generated">`, 'bot');
