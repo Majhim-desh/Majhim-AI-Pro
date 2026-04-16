@@ -1,4 +1,4 @@
-// 1. Config
+// 1. Config (API Key अब पूरी तरह से Remote Config के हाथ में है)
 const firebaseConfig = {
     authDomain: "majhim-ai.firebaseapp.com",
     projectId: "majhim-ai",
@@ -7,45 +7,58 @@ const firebaseConfig = {
     appId: "1:361749678090:web:ed1668151fbe935fecb7f3"
 };
 
-// Initialize
+// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const remoteConfig = firebase.remoteConfig();
 
-// 🔥 IMPORTANT: इसे ग्लोबल रखें ताकि ai-logic इसे तुरंत इस्तेमाल कर सके
+// 🔥 IMPORTANT: डेटा तुरंत खींचने के लिए सेटिंग्स
 remoteConfig.settings.minimumFetchIntervalMillis = 0;
+
+// 🛡️ DEFAULT VALUES: अगर नेटवर्क स्लो हो तो कम से कम कोड क्रैश न हो
+remoteConfig.defaultConfig = {
+    'FIREBASE_API_KEY': '',
+    'OPENAI_API_KEY': ''
+};
 
 let auth;
 let provider;
 
+// 🔑 सिस्टम सेटअप करने वाला फंक्शन (Remote Config आधारित)
 async function setupSystem() {
     try {
-        // पेज लोड होते ही सबसे पहले डेटा खींचें
+        // सबसे पहले तिजोरी खोलें (Fetch & Activate)
         await remoteConfig.fetchAndActivate();
         
-        // 🔑 Firebase की अंदरूनी चाबी (Auth के लिए)
+        // 1. Firebase की चाबी निकालें
         const fbKey = remoteConfig.getValue('FIREBASE_API_KEY').asString();
-        if (fbKey) {
+        
+        if (fbKey && fbKey.trim() !== "") {
+            // Firebase को उसकी चाबी सौंपें
             firebase.app().options.apiKey = fbKey;
+            console.log("Firebase Auth Key Loaded ✅");
+        } else {
+            console.warn("FIREBASE_API_KEY not found in Remote Config!");
         }
 
+        // 2. बाकी सिस्टम शुरू करें
         auth = firebase.auth();
         provider = new firebase.auth.GoogleAuthProvider();
 
         handleRedirectResult();
         observeAuth();
         
-        console.log("Majhim System: Ready ✅");
+        console.log("Majhim System: Ready 🚀");
     } catch (err) {
         console.error("Setup Error:", err);
     }
 }
 
-// सिस्टम स्टार्ट करें
+// सेटअप शुरू करें
 setupSystem();
 
 // --- Auth Functions ---
 function login() {
-    if (!auth) return alert("सिस्टम लोड हो रहा है...");
+    if (!auth) return alert("सिस्टम लोड हो रहा है, थोड़ा इंतज़ार करें...");
     auth.signInWithRedirect(provider);
 }
 
@@ -56,9 +69,9 @@ function logout() {
 async function handleRedirectResult() {
     try {
         const result = await auth.getRedirectResult();
-        if (result.user) console.log("User Logged In");
+        if (result.user) console.log("User Logged In:", result.user.displayName);
     } catch (error) {
-        console.error("Redirect Error:", error);
+        console.error("Redirect Error:", error.message);
     }
 }
 
@@ -84,13 +97,14 @@ function observeAuth() {
 // 🔑 AI Key लाने वाला फंक्शन (Groq के लिए - ai-logic.js इसे कॉल करेगा)
 async function getAIKey() {
     try { 
-        // हर बार ताज़ा डेटा मांगने की कोशिश
+        // ताज़ा डेटा खींचने की कोशिश
         await remoteConfig.fetchAndActivate(); 
         const key = remoteConfig.getValue('OPENAI_API_KEY').asString();
         
-        if (!key) {
-            // अगर पहली बार में न मिले, तो 1 सेकंड का इंतज़ार करके एक्टिवेट करें
-            await new Promise(res => setTimeout(res, 1000));
+        if (!key || key.trim() === "") {
+            // अगर पहली बार में न मिले, तो 1.5 सेकंड का इंतज़ार करके फिर कोशिश करें
+            console.log("Key not found, retrying...");
+            await new Promise(res => setTimeout(res, 1500));
             await remoteConfig.activate();
             return remoteConfig.getValue('OPENAI_API_KEY').asString();
         }
