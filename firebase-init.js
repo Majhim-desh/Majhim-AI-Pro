@@ -1,5 +1,6 @@
-// 1. Config (API Key अब पूरी तरह से Remote Config के हाथ में है)
+// 1. Config (Firebase की चाबी यहाँ वापस डाल दी ताकि सिस्टम तुरंत चालू हो जाए)
 const firebaseConfig = {
+    apiKey: "AIzaSyCL4YKtPYxxhLoGwjw7A_81WWYBsOQZmoQ", 
     authDomain: "majhim-ai.firebaseapp.com",
     projectId: "majhim-ai",
     storageBucket: "majhim-ai.firebasestorage.app",
@@ -14,36 +15,21 @@ const remoteConfig = firebase.remoteConfig();
 // 🔥 IMPORTANT: डेटा तुरंत खींचने के लिए सेटिंग्स
 remoteConfig.settings.minimumFetchIntervalMillis = 0;
 
-// 🛡️ DEFAULT VALUES: अगर नेटवर्क स्लो हो तो कम से कम कोड क्रैश न हो
+// 🛡️ DEFAULT VALUES
 remoteConfig.defaultConfig = {
-    'FIREBASE_API_KEY': '',
     'OPENAI_API_KEY': ''
 };
 
-let auth;
-let provider;
+let auth = firebase.auth();
+let provider = new firebase.auth.GoogleAuthProvider();
 
-// 🔑 सिस्टम सेटअप करने वाला फंक्शन (Remote Config आधारित)
+// 🔑 सीधे ऑथेंटिकेशन और रिमोट कॉन्फ़िग सेटअप करें
 async function setupSystem() {
     try {
-        // सबसे पहले तिजोरी खोलें (Fetch & Activate)
+        // Firebase चालू हो चुका है, बस रिमोट कॉन्फ़िग को बैकग्राउंड में ताज़ा करें
         await remoteConfig.fetchAndActivate();
+        console.log("Remote Config Initialized ✅");
         
-        // 1. Firebase की चाबी निकालें
-        const fbKey = remoteConfig.getValue('FIREBASE_API_KEY').asString();
-        
-        if (fbKey && fbKey.trim() !== "") {
-            // Firebase को उसकी चाबी सौंपें
-            firebase.app().options.apiKey = fbKey;
-            console.log("Firebase Auth Key Loaded ✅");
-        } else {
-            console.warn("FIREBASE_API_KEY not found in Remote Config!");
-        }
-
-        // 2. बाकी सिस्टम शुरू करें
-        auth = firebase.auth();
-        provider = new firebase.auth.GoogleAuthProvider();
-
         handleRedirectResult();
         observeAuth();
         
@@ -53,7 +39,7 @@ async function setupSystem() {
     }
 }
 
-// सेटअप शुरू करें
+// सिस्टम स्टार्ट करें
 setupSystem();
 
 // --- Auth Functions ---
@@ -69,7 +55,7 @@ function logout() {
 async function handleRedirectResult() {
     try {
         const result = await auth.getRedirectResult();
-        if (result.user) console.log("User Logged In:", result.user.displayName);
+        if (result && result.user) console.log("User Logged In:", result.user.displayName);
     } catch (error) {
         console.error("Redirect Error:", error.message);
     }
@@ -97,18 +83,15 @@ function observeAuth() {
 // 🔑 AI Key लाने वाला फंक्शन (Groq के लिए - ai-logic.js इसे कॉल करेगा)
 async function getAIKey() {
     try { 
-        // ताज़ा डेटा खींचने की कोशिश
         await remoteConfig.fetchAndActivate(); 
-        const key = remoteConfig.getValue('OPENAI_API_KEY').asString();
+        let key = remoteConfig.getValue('OPENAI_API_KEY').asString();
         
         if (!key || key.trim() === "") {
-            // अगर पहली बार में न मिले, तो 1.5 सेकंड का इंतज़ार करके फिर कोशिश करें
             console.log("Key not found, retrying...");
-            await new Promise(res => setTimeout(res, 1500));
+            await new Promise(res => setTimeout(res, 2000)); // 2 सेकंड इंतज़ार
             await remoteConfig.activate();
-            return remoteConfig.getValue('OPENAI_API_KEY').asString();
+            key = remoteConfig.getValue('OPENAI_API_KEY').asString();
         }
-        
         return key; 
     } catch (err) { 
         console.error("Remote Config Error:", err);
@@ -116,10 +99,12 @@ async function getAIKey() {
     }
 }
 
-// यह चेक करने के लिए कि क्या Remote Config काम कर रहा है
+// ✅ यह चेक करने के लिए कि क्या Groq Key आ रही है
 setTimeout(async () => {
     const testKey = await getAIKey();
-    console.log("Testing Key on Load:", testKey);
-    if(testKey) alert("बधाई हो! चाबी मिल गई: " + testKey.substring(0,5) + "...");
-    else alert("अभी भी खाली है भाई! ❌");
-}, 3000);
+    if(testKey && testKey.trim() !== "") {
+        console.log("Groq Key Loaded Successfully ✅");
+    } else {
+        alert("Alert: Remote Config से Groq Key नहीं मिल पाई! ❌");
+    }
+}, 4000);
