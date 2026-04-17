@@ -1,157 +1,232 @@
-// 3. Voice & Utility Logic (The Bulletproof Hacker Edition)
+// 🎤 Majhim AI Pro - FINAL HYBRID STREAMING VOICE ENGINE (Bug-Free Edition)
+
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
-let currentAudio = null;
-let speechQueue = [];
-let queueIndex = 0;
-let useFallback = false;
-let resumeInterval = null; // 🔥 Battery Saver Switch
 
-// 🛡️ Anti-Kill System Function: MIUI Cleaner से मुकाबला और बैटरी की बचत
+let currentAudio = null;
+let isPlaying = false;
+let isPaused = false;
+let useFallback = false;
+
+let streamBuffer = "";
+let isStreaming = false;
+let resumeInterval = null;
+let lastBtn = null; // 🎯 यह ट्रैक करने के लिए कि कौन सा बटन दब रहा है
+
+// 🛡️ Resume System (Cleaner Protection for MIUI/Android)
 function startResumeSystem() {
     if (resumeInterval) clearInterval(resumeInterval);
     resumeInterval = setInterval(() => {
-        // चेक करें कि क्या ऑडियो रुका हुआ है जबकि उसे बजना चाहिए
-        if (currentAudio && currentAudio.paused && !currentAudio.ended && queueIndex < speechQueue.length) {
-            currentAudio.play().catch(() => {
-                if(!useFallback) {
-                    useFallback = true;
-                    playNextChunk();
-                }
-            });
+        if (isPlaying && !isPaused && currentAudio && currentAudio.paused && !currentAudio.ended) {
+            currentAudio.play().catch(() => {});
         }
     }, 1000);
 }
 
-function playNextChunk() {
-    // 🏁 कतार खत्म -> सिस्टम को सुला दो (CPU & Battery Save)
-    if (queueIndex >= speechQueue.length) {
-        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "none";
-        if (resumeInterval) {
-            clearInterval(resumeInterval); 
-            resumeInterval = null;
-        }
-        return;
-    }
+// 🔊 Speak one chunk (Google TTS)
+function speakChunk(text) {
+    if (!isPlaying || isPaused) return;
 
-    let chunk = speechQueue[queueIndex].trim();
-    if (!chunk) {
-        queueIndex++;
-        playNextChunk();
-        return;
-    }
+    const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`;
 
-    if (useFallback) {
-        fallbackSpeak(chunk);
-        return;
-    }
-
-    const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=hi&client=tw-ob`;
-
-    // पुराने ऑडियो की सफाई
     if (currentAudio) {
         currentAudio.pause();
         currentAudio.src = "";
     }
 
     currentAudio = new Audio(voiceUrl);
-    currentAudio.preload = "auto";
 
     currentAudio.onended = () => {
-        queueIndex++;
-        playNextChunk();
+        processStream();
     };
 
     currentAudio.onerror = () => {
         useFallback = true;
-        fallbackSpeak(chunk);
+        fallbackSpeak(text);
     };
 
-    // प्ले शुरू होते ही सुरक्षा तंत्र सक्रिय करें
-    currentAudio.play().then(() => startResumeSystem()).catch(() => {
-        useFallback = true;
-        fallbackSpeak(chunk);
-    });
+    currentAudio.play()
+        .then(() => startResumeSystem())
+        .catch(() => {
+            useFallback = true;
+            fallbackSpeak(text);
+        });
 }
 
+// 🔊 Fallback Voice (System Speech Synthesis)
 function fallbackSpeak(text) {
+    if (!isPlaying || isPaused) return;
+
+    window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = 'hi-IN';
-    utter.onstart = () => startResumeSystem(); // Fallback में भी सुरक्षा जारी रखें
+
     utter.onend = () => {
-        queueIndex++;
-        playNextChunk();
+        processStream();
     };
-    utter.onerror = () => {
-        queueIndex++;
-        playNextChunk();
-    };
+
     window.speechSynthesis.speak(utter);
 }
 
-function speakText(text) {
-    // नया बटन दबने पर पुराने को पूरी तरह चुप कराएं
+// 🚀 STREAM PROCESSOR (Smart Sentence Splicing)
+function processStream() {
+    if (!isPlaying || isPaused) return;
+
+    if (!streamBuffer.trim()) {
+        isStreaming = false;
+        // अगर बफर खत्म हो गया है, तो सब बंद करें
+        if (!currentAudio || currentAudio.ended) stopSpeech(); 
+        return;
+    }
+
+    // RegEx: वाक्य को पूर्ण विराम (।) या सवालिया निशान (?) पर तोड़ें
+    const match = streamBuffer.match(/(.+?[।!?])/);
+
+    if (match) {
+        const sentence = match[1];
+        streamBuffer = streamBuffer.replace(sentence, "");
+
+        if (useFallback) {
+            fallbackSpeak(sentence);
+        } else {
+            speakChunk(sentence);
+        }
+    } else {
+        // अगर अभी वाक्य पूरा नहीं हुआ, तो थोड़ा इंतज़ार करें
+        setTimeout(processStream, 200);
+    }
+}
+
+// 🎯 STREAM START
+function streamSpeak(text) {
+    streamBuffer += " " + text;
+
+    if (!isStreaming) {
+        isStreaming = true;
+        processStream();
+    }
+}
+
+// 🛑 STOP ALL (Full Cleanup)
+function stopSpeech() {
+    isPlaying = false;
+    isPaused = false;
+    isStreaming = false;
+    streamBuffer = "";
+
+    window.speechSynthesis.cancel();
+
     if (currentAudio) {
         currentAudio.pause();
         currentAudio.src = "";
         currentAudio = null;
     }
-    window.speechSynthesis.cancel();
-    
-    speechQueue = [];
-    queueIndex = 0;
-    useFallback = false;
 
-    // कोड ब्लॉक्स को "कोड ब्लॉक" शब्द से बदलें ताकि AI सिंबल न चिल्लाए
-    let cleanText = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक").trim();
-    if (!cleanText) return;
+    if (resumeInterval) {
+        clearInterval(resumeInterval);
+        resumeInterval = null;
+    }
 
-    // वाक्यों को समझदारी से बांटें
-    speechQueue = cleanText.split(/(?<=[।!?])\s+/).filter(s => s.trim().length > 0);
-    if (speechQueue.length === 0) speechQueue = [cleanText];
-
-    playNextChunk();
+    // सभी बटन्स को वापस "Listen" कर दें
+    document.querySelectorAll('.action-btn').forEach(btn => {
+        if (btn.innerText.includes("Pause") || btn.innerText.includes("Resume")) {
+            btn.innerText = "Listen 🔊";
+        }
+    });
 }
 
+// ⏸️ Pause Logic
+function pauseSpeech(btn) {
+    isPaused = true;
+    if (currentAudio) currentAudio.pause();
+    window.speechSynthesis.pause();
+    btn.innerText = "Resume ▶️";
+}
+
+// ▶️ Resume Logic
+function resumeSpeech(btn) {
+    isPaused = false;
+    btn.innerText = "Pause ⏸️";
+
+    if (useFallback) {
+        window.speechSynthesis.resume();
+    } else {
+        if (currentAudio) {
+            currentAudio.play().catch(() => processStream());
+        } else {
+            processStream();
+        }
+    }
+}
+
+// 🔁 TOGGLE Controller
+function toggleSpeech(btn) {
+    if (!isPlaying) {
+        const text = btn.closest('.bubble').querySelector('.text-content').innerText;
+        isPlaying = true;
+        isPaused = false;
+        useFallback = false;
+        streamSpeak(text);
+        btn.innerText = "Pause ⏸️";
+        return;
+    }
+
+    if (isPlaying && !isPaused) {
+        pauseSpeech(btn);
+    } else {
+        resumeSpeech(btn);
+    }
+}
+
+// 🎯 MAIN BUTTON HOOK (Bug-Fix: Checks if it's a new message)
 function speakFromBubble(btn) {
-    const text = btn.closest('.bubble').querySelector('.text-content').innerText;
-    speakText(text);
+    if (lastBtn && lastBtn !== btn) {
+        stopSpeech(); // सिर्फ तब रिसेट करें जब यूजर किसी दूसरे बबल पर क्लिक करे
+    }
+    lastBtn = btn;
+    toggleSpeech(btn);
 }
 
-// 🎤 MIC: आवाज से टाइपिंग
+// 🎤 MIC: Voice Typing logic
 function startVoiceTyping() {
-    if (!recognition) { alert("Voice typing not supported."); return; }
+    if (!recognition) {
+        alert("माफ़ करना, वॉइस टाइपिंग सपोर्ट नहीं है।");
+        return;
+    }
+
     recognition.lang = 'hi-IN';
     recognition.start();
-    document.getElementById('mic-btn').style.background = "#ea0038";
+
+    const micBtn = document.getElementById('mic-btn');
+    micBtn.style.background = "#ea0038";
 
     recognition.onresult = (event) => {
-        userInput.value += event.results[0][0].transcript;
+        const input = document.getElementById('user-input');
+        input.value += event.results[0][0].transcript;
     };
 
     recognition.onspeechend = () => {
         recognition.stop();
-        document.getElementById('mic-btn').style.background = "#3b4a54";
+        micBtn.style.background = "#00a884";
     };
 
     recognition.onerror = () => {
-        document.getElementById('mic-btn').style.background = "#3b4a54";
+        micBtn.style.background = "#00a884";
     };
 }
 
-// 📋 COPY: जवाब कॉपी करना
+// 📋 COPY FUNCTIONS
 function copyToClipboard(btn) {
     const text = btn.closest('.bubble').querySelector('.text-content').innerText;
-
     navigator.clipboard.writeText(text).then(() => {
         const old = btn.innerText;
         btn.innerText = "COPIED ✅";
         setTimeout(() => btn.innerText = old, 2000);
     });
-    }
+}
+
 function copyCode(btn) {
     const code = btn.parentElement.querySelector("code").innerText;
-    
     navigator.clipboard.writeText(code).then(() => {
         const old = btn.innerText;
         btn.innerText = "Copied ✅";
