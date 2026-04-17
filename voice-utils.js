@@ -107,7 +107,7 @@ function streamSpeak(text) {
     }
 }
 
-// 🛑 STOP ALL (Full Cleanup)
+// 🛑 STOP ALL (Full Cleanup + Button Reset Fix)
 function stopSpeech() {
     isPlaying = false;
     isPaused = false;
@@ -127,8 +127,9 @@ function stopSpeech() {
         resumeInterval = null;
     }
 
-    // सभी बटन्स को वापस "Listen" कर दें
+    // ✅ यह लाइन पक्का करेगी कि बात खत्म होते ही बटन वापस "Listen" बन जाए
     document.querySelectorAll('.action-btn').forEach(btn => {
+        // हम उन सभी बटन्स को ढूंढ रहे हैं जिनमें Pause या Resume लिखा है
         if (btn.innerText.includes("Pause") || btn.innerText.includes("Resume")) {
             btn.innerText = "Listen 🔊";
         }
