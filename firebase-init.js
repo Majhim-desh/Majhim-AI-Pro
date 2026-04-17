@@ -30,7 +30,7 @@ async function setupSystem() {
         await remoteConfig.fetchAndActivate();
         
         // 1. Firebase की चाबी निकालें
-        const fbKey = remoteConfig.getValue('AIzaSyCL4YKtPYxxhLoGwjw7A_81WWYBsOQZmoQ').asString();
+        const fbKey = remoteConfig.getValue('FIREBASE_API_KEY').asString();
         
         if (fbKey && fbKey.trim() !== "") {
             // Firebase को उसकी चाबी सौंपें
