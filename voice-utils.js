@@ -1,4 +1,4 @@
-// 🎤 Majhim AI Pro - FINAL HYBRID STREAMING VOICE ENGINE (Bug-Free Edition)
+// 🎤 Majhim AI Pro - FINAL HYBRID STREAMING VOICE ENGINE (Ultra-Smooth Edition)
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
@@ -11,9 +11,9 @@ let useFallback = false;
 let streamBuffer = "";
 let isStreaming = false;
 let resumeInterval = null;
-let lastBtn = null; // 🎯 यह ट्रैक करने के लिए कि कौन सा बटन दब रहा है
+let lastBtn = null; 
 
-// 🛡️ Resume System (Cleaner Protection for MIUI/Android)
+// 🛡️ Resume System (MIUI/Android Cleaner Protection)
 function startResumeSystem() {
     if (resumeInterval) clearInterval(resumeInterval);
     resumeInterval = setInterval(() => {
@@ -23,7 +23,7 @@ function startResumeSystem() {
     }, 1000);
 }
 
-// 🔊 Speak one chunk (Google TTS)
+// 🔊 Speak one chunk (Google TTS with Preload)
 function speakChunk(text) {
     if (!isPlaying || isPaused) return;
 
@@ -35,6 +35,9 @@ function speakChunk(text) {
     }
 
     currentAudio = new Audio(voiceUrl);
+    
+    // 🔥 Preload: ताकि आवाज़ के बीच गैप न आए
+    currentAudio.preload = "auto"; 
 
     currentAudio.onended = () => {
         processStream();
@@ -68,23 +71,30 @@ function fallbackSpeak(text) {
     window.speechSynthesis.speak(utter);
 }
 
-// 🚀 STREAM PROCESSOR (Smart Sentence Splicing)
+// 🚀 STREAM PROCESSOR (Smart Splicing + Auto-Reset Logic)
 function processStream() {
     if (!isPlaying || isPaused) return;
 
+    // 🛑 अगर बफर खाली है
     if (!streamBuffer.trim()) {
         isStreaming = false;
-        // अगर बफर खत्म हो गया है, तो सब बंद करें
-        if (!currentAudio || currentAudio.ended) stopSpeech(); 
+        
+        // ⏳ 600ms का इंतज़ार ताकि आखिरी शब्द के बाद बटन स्मूथली रिसेट हो
+        setTimeout(() => {
+            if (!streamBuffer.trim() && (!currentAudio || currentAudio.ended)) {
+                stopSpeech(); 
+            }
+        }, 600);
         return;
     }
 
-    // RegEx: वाक्य को पूर्ण विराम (।) या सवालिया निशान (?) पर तोड़ें
+    // RegEx: वाक्य को पूर्ण विराम (।) या सवालिया निशान (?) पर तोड़ें
     const match = streamBuffer.match(/(.+?[।!?])/);
 
     if (match) {
         const sentence = match[1];
-        streamBuffer = streamBuffer.replace(sentence, "");
+        // replace की जगह slice का इस्तेमाल (Fast & Accurate)
+        streamBuffer = streamBuffer.slice(sentence.length);
 
         if (useFallback) {
             fallbackSpeak(sentence);
@@ -92,8 +102,8 @@ function processStream() {
             speakChunk(sentence);
         }
     } else {
-        // अगर अभी वाक्य पूरा नहीं हुआ, तो थोड़ा इंतज़ार करें
-        setTimeout(processStream, 200);
+        // अगर वाक्य अभी अधूरा है, तो 300ms बाद फिर चेक करें
+        setTimeout(processStream, 300); 
     }
 }
 
@@ -127,9 +137,8 @@ function stopSpeech() {
         resumeInterval = null;
     }
 
-    // ✅ यह लाइन पक्का करेगी कि बात खत्म होते ही बटन वापस "Listen" बन जाए
+    // ✅ बटन को वापस Listen 🔊 बनाना
     document.querySelectorAll('.action-btn').forEach(btn => {
-        // हम उन सभी बटन्स को ढूंढ रहे हैं जिनमें Pause या Resume लिखा है
         if (btn.innerText.includes("Pause") || btn.innerText.includes("Resume")) {
             btn.innerText = "Listen 🔊";
         }
@@ -179,16 +188,16 @@ function toggleSpeech(btn) {
     }
 }
 
-// 🎯 MAIN BUTTON HOOK (Bug-Fix: Checks if it's a new message)
+// 🎯 MAIN BUTTON HOOK
 function speakFromBubble(btn) {
     if (lastBtn && lastBtn !== btn) {
-        stopSpeech(); // सिर्फ तब रिसेट करें जब यूजर किसी दूसरे बबल पर क्लिक करे
+        stopSpeech(); 
     }
     lastBtn = btn;
     toggleSpeech(btn);
 }
 
-// 🎤 MIC: Voice Typing logic
+// 🎤 MIC: Voice Typing
 function startVoiceTyping() {
     if (!recognition) {
         alert("माफ़ करना, वॉइस टाइपिंग सपोर्ट नहीं है।");
