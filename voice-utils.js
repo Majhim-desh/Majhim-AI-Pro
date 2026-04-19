@@ -1,4 +1,4 @@
-// 🎤 ULTIMATE VOICE ENGINE (Zero-Ghost Resume Edition)
+// 🎤 ULTIMATE STABLE ENGINE (No More Logic Fails)
 
 let currentAudio = null;
 let isPlaying = false;
@@ -9,84 +9,48 @@ let isCurrentlySpeaking = false;
 let streamBuffer = "";
 let isStreaming = false;
 let lastBtn = null;
-let useFallback = false;
+let resumeInterval = null;
 
-let resumeInterval = null; // 🛡️ Global Timer Reference
-
-// 🛡️ 1. SAFE RESUME SYSTEM (No Multiple Intervals)
-function startResumeSystem() {
-    // अगर पहले से कोई टाइमर है, तो उसे ख़त्म करो
-    if (resumeInterval) {
-        clearInterval(resumeInterval);
-    }
-
-    resumeInterval = setInterval(() => {
-        if (isPlaying && !isPaused && currentAudio && currentAudio.paused && !currentAudio.ended) {
-            currentAudio.play().catch(() => {});
-        }
-    }, 1200);
-}
-
-// 🛑 2. FULL RESET (All Cleanup)
+// 1. 🛑 COMPLETE SYSTEM RESET
 function stopSpeech() {
     isPlaying = false;
     isPaused = false;
     isFinished = false;
     isCurrentlySpeaking = false;
-    isStreaming = false;
     streamBuffer = "";
 
-    // 🛡️ Ghost Interval को मारो
-    if (resumeInterval) {
-        clearInterval(resumeInterval);
-        resumeInterval = null;
-    }
-
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (resumeInterval) { clearInterval(resumeInterval); resumeInterval = null; }
 
     if (currentAudio) {
         currentAudio.pause();
-        currentAudio.onended = null;
-        currentAudio.onerror = null;
         currentAudio.src = "";
         currentAudio = null;
     }
 
-   // ✅ यह सही है (सिर्फ Voice वाले बटन को टारगेट करेगा)
-document.querySelectorAll('.action-btn').forEach(btn => {
-    // अगर बटन में पहले से Pause या Resume लिखा है, तभी उसे Listen बनाओ
-    if (btn.innerText.includes("Pause") || btn.innerText.includes("Resume")) {
-        btn.innerText = "Listen 🔊";
-    }
-});
+    // सभी बटनों को वापस अपनी असल हालत में लाओ
+    document.querySelectorAll('.action-btn').forEach(btn => {
+        if (btn.innerText.includes("Pause") || btn.innerText.includes("Resume")) {
+            btn.innerText = "Listen 🔊";
+        }
+    });
 }
 
-// 🚀 3. PROCESSOR (Lock + Last Line Fix)
+// 2. 🚀 THE PROCESSOR (Wait & Speak Logic)
 function processStream() {
     if (!isPlaying || isPaused || isCurrentlySpeaking) return;
 
-    // --- यहाँ से बदलाव शुरू ---
     if (!streamBuffer.trim()) {
         isStreaming = false;
+        // अगर सब खत्म हो गया तो बटन रिसेट करो
         setTimeout(() => {
             if (!streamBuffer.trim() && (!currentAudio || currentAudio.ended)) {
-                isFinished = true;
-                isPlaying = false;
-                
-                // ✅ सुधार: अब Copy बटन सुरक्षित रहेगा
-                if (lastBtn && (lastBtn.innerText.includes("Pause") || lastBtn.innerText.includes("Resume"))) {
-                    lastBtn.innerText = "Listen 🔊";
-                }
-                
-                if (resumeInterval) {
-                    clearInterval(resumeInterval);
-                    resumeInterval = null;
-                }
+                finishSpeech();
             }
-        }, 700);
+        }, 800);
         return;
     }
-   
+
+    // वाक्यों को काटना (। ! ?)
     let match = streamBuffer.match(/(.+?[।!?])/);
     let sentence = "";
 
@@ -99,107 +63,80 @@ function processStream() {
     }
 
     if (sentence) {
-        isCurrentlySpeaking = true; 
-        if (useFallback) fallbackSpeak(sentence);
-        else speakChunk(sentence);
+        speakChunk(sentence);
     } else {
-        setTimeout(processStream, 250);
+        setTimeout(processStream, 300);
     }
 }
-// 🔊 4. CHUNK ENGINE (Interval Trigger)
-function speakChunk(text) {
-    if (!isPlaying || isPaused) {
-        isCurrentlySpeaking = false; 
-        return;
-    }
 
+// 3. 🔊 THE VOICE ENGINE (Google TTS - Most Stable)
+function speakChunk(text) {
+    isCurrentlySpeaking = true;
     const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`;
 
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.src = "";
-    }
-
+    if (currentAudio) { currentAudio.src = ""; }
     currentAudio = new Audio(voiceUrl);
-    currentAudio.preload = "auto";
 
     currentAudio.onended = () => {
-        isCurrentlySpeaking = false; 
+        isCurrentlySpeaking = false;
         processStream();
     };
 
     currentAudio.onerror = () => {
-        isCurrentlySpeaking = false; 
-        useFallback = true;
-        fallbackSpeak(text);
-    };
-
-    currentAudio.play()
-        .then(() => {
-            // ✅ सिर्फ यहाँ से पहरेदार शुरू होगा
-            startResumeSystem();
-        })
-        .catch(() => {
-            isCurrentlySpeaking = false; 
-            useFallback = true;
-            fallbackSpeak(text);
-        });
-}
-
-// 🔊 5. FALLBACK
-function fallbackSpeak(text) {
-    if (!isPlaying || isPaused) {
+        console.error("Audio Load Error");
         isCurrentlySpeaking = false;
-        return;
-    }
-    window.speechSynthesis.cancel(); 
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'hi-IN';
-    utter.onend = () => {
-        isCurrentlySpeaking = false; 
-        processStream();
+        processStream(); // एरर आए तो अगले वाक्य पर जाओ, रुको मत
     };
-    window.speechSynthesis.speak(utter);
+
+    currentAudio.play().then(() => {
+        // मोबाइल के लिए पहरेदार (Interval)
+        if (!resumeInterval) {
+            resumeInterval = setInterval(() => {
+                if (isPlaying && !isPaused && currentAudio && currentAudio.paused && !currentAudio.ended) {
+                    currentAudio.play().catch(()=>{});
+                }
+            }, 1500);
+        }
+    }).catch(() => {
+        isCurrentlySpeaking = false;
+        processStream();
+    });
 }
 
-// ▶️ 6. RESUME
-function resumeSpeech(btn) {
-    isPaused = false;
-    btn.innerText = "Pause ⏸️";
-    isCurrentlySpeaking = false; 
-    
-    if (currentAudio) {
-        currentAudio.play().then(() => startResumeSystem()).catch(() => processStream());
-    } else {
-        processStream();
+// 4. 🏁 FINISH SYSTEM
+function finishSpeech() {
+    isPlaying = false;
+    isFinished = true;
+    if (resumeInterval) { clearInterval(resumeInterval); resumeInterval = null; }
+    if (lastBtn && (lastBtn.innerText.includes("Pause") || lastBtn.innerText.includes("Resume"))) {
+        lastBtn.innerText = "Listen 🔊";
     }
 }
 
-// ⏸️ 7. PAUSE
+// 5. ⏸️ PAUSE/RESUME
 function pauseSpeech(btn) {
     isPaused = true;
     if (currentAudio) currentAudio.pause();
-    if (window.speechSynthesis) window.speechSynthesis.pause();
     btn.innerText = "Resume ▶️";
-    
-    // पॉज़ होने पर टाइमर बंद करो ताकि बैटरी न जले
-    if (resumeInterval) {
-        clearInterval(resumeInterval);
-        resumeInterval = null;
-    }
 }
 
-// 🔁 8. MAIN TOGGLE
+function resumeSpeech(btn) {
+    isPaused = false;
+    btn.innerText = "Pause ⏸️";
+    if (currentAudio) currentAudio.play().catch(() => processStream());
+    else processStream();
+}
+
+// 6. 🔁 THE BRAIN (Toggle Control)
 function toggleSpeech(btn) {
     const text = btn.closest('.bubble').querySelector('.text-content').innerText;
 
     if (!isPlaying || isFinished) {
         stopSpeech();
         isPlaying = true;
-        isPaused = false;
         isFinished = false;
         isStreaming = true;
-        streamBuffer = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
+        streamBuffer = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक"); // कोड को बोलने से हटाओ
         processStream();
         btn.innerText = "Pause ⏸️";
     } 
