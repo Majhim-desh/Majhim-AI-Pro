@@ -65,15 +65,19 @@ document.querySelectorAll('.action-btn').forEach(btn => {
 function processStream() {
     if (!isPlaying || isPaused || isCurrentlySpeaking) return;
 
+    // --- यहाँ से बदलाव शुरू ---
     if (!streamBuffer.trim()) {
         isStreaming = false;
         setTimeout(() => {
             if (!streamBuffer.trim() && (!currentAudio || currentAudio.ended)) {
                 isFinished = true;
                 isPlaying = false;
-                if (lastBtn) lastBtn.innerText = "Listen 🔊";
                 
-                // काम खत्म तो पहरेदार को भी हटाओ
+                // ✅ सुधार: अब Copy बटन सुरक्षित रहेगा
+                if (lastBtn && (lastBtn.innerText.includes("Pause") || lastBtn.innerText.includes("Resume"))) {
+                    lastBtn.innerText = "Listen 🔊";
+                }
+                
                 if (resumeInterval) {
                     clearInterval(resumeInterval);
                     resumeInterval = null;
@@ -82,7 +86,7 @@ function processStream() {
         }, 700);
         return;
     }
-
+   
     let match = streamBuffer.match(/(.+?[।!?])/);
     let sentence = "";
 
@@ -102,7 +106,6 @@ function processStream() {
         setTimeout(processStream, 250);
     }
 }
-
 // 🔊 4. CHUNK ENGINE (Interval Trigger)
 function speakChunk(text) {
     if (!isPlaying || isPaused) {
