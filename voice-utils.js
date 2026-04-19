@@ -180,3 +180,39 @@ function speakFromBubble(btn) {
     lastBtn = btn;
     toggleSpeech(btn);
 }
+
+// 📋 COPY FUNCTIONS (Majhim AI Pro Utility)
+
+// 1. पूरे मैसेज को कॉपी करने के लिए
+function copyToClipboard(btn) {
+    const text = btn.closest('.bubble').querySelector('.text-content').innerText;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        const old = btn.innerText;
+        btn.innerText = "COPIED ✅";
+        
+        // 2 सेकंड बाद बटन को वापस पुराना नाम दे दें
+        setTimeout(() => {
+            btn.innerText = old;
+        }, 2000);
+    }).catch(err => {
+        console.error("Copy failed:", err);
+    });
+}
+
+// 2. कोड ब्लॉक के अंदर के कोड को कॉपी करने के लिए
+function copyCode(btn) {
+    // बटन के बगल वाले <code> टैग से टेक्स्ट उठाना
+    const code = btn.parentElement.querySelector("code").innerText;
+    
+    navigator.clipboard.writeText(code).then(() => {
+        const old = btn.innerText;
+        btn.innerText = "Copied ✅";
+        
+        setTimeout(() => {
+            btn.innerText = old;
+        }, 2000);
+    }).catch(err => {
+        console.error("Code copy failed:", err);
+    });
+            }
