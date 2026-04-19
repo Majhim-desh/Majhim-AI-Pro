@@ -52,9 +52,13 @@ function stopSpeech() {
         currentAudio = null;
     }
 
-    document.querySelectorAll('.action-btn').forEach(btn => {
+   // ✅ यह सही है (सिर्फ Voice वाले बटन को टारगेट करेगा)
+document.querySelectorAll('.action-btn').forEach(btn => {
+    // अगर बटन में पहले से Pause या Resume लिखा है, तभी उसे Listen बनाओ
+    if (btn.innerText.includes("Pause") || btn.innerText.includes("Resume")) {
         btn.innerText = "Listen 🔊";
-    });
+    }
+});
 }
 
 // 🚀 3. PROCESSOR (Lock + Last Line Fix)
