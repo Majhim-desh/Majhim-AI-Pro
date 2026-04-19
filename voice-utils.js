@@ -1,33 +1,77 @@
-// 🎤 UNIVERSAL VOICE ENGINE (Mobile + Desktop Optimized)
-
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+// 🎤 UNIVERSAL VOICE ENGINE (The Final Fix)
 
 let currentAudio = null;
 let isPlaying = false;
 let isPaused = false;
-let useFallback = false;
-
+let isStreaming = false; // 👈 इसे ट्रैक करना ज़रूरी है
 let streamBuffer = "";
 let resumeInterval = null;
 let lastBtn = null;
+let useFallback = false;
 
-// 📱 Detect Low-end Mobile
 const isMobile = /Android|iPhone/i.test(navigator.userAgent);
 
-// 🛡️ Resume System (Only for Mobile)
-function startResumeSystem() {
-    if (!isMobile) return;
+// 🛑 STOP: यह फंक्शन आवाज़ को "Unblock" करेगा
+function stopSpeech() {
+    isPlaying = false;
+    isPaused = false;
+    isStreaming = false;
+    streamBuffer = "";
 
-    if (resumeInterval) clearInterval(resumeInterval);
-    resumeInterval = setInterval(() => {
-        if (isPlaying && !isPaused && currentAudio && currentAudio.paused && !currentAudio.ended) {
-            currentAudio.play().catch(() => {});
+    // 1. Fallback को पूरी तरह साफ़ करो
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+
+    // 2. Audio ऑब्जेक्ट को जड़ से खत्म करो
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.onended = null; // Memory leak रोको
+        currentAudio.onerror = null;
+        currentAudio.src = "";
+        currentAudio = null;
+    }
+
+    if (resumeInterval) {
+        clearInterval(resumeInterval);
+        resumeInterval = null;
+    }
+
+    // 3. बटन्स को रिसेट करो
+    document.querySelectorAll('.action-btn').forEach(btn => {
+        if (btn.innerText.includes("Pause") || btn.innerText.includes("Resume")) {
+            btn.innerText = "Listen 🔊";
         }
-    }, 1200);
+    });
 }
 
-// 🔊 Speak Chunk
+// 🚀 PROCESSOR: यहाँ Logic एकदम टाइट है
+function processStream() {
+    if (!isPlaying || isPaused) return;
+
+    if (!streamBuffer.trim()) {
+        isStreaming = false; 
+        // अगर बफर खाली है और आवाज़ खत्म हो गई है, तभी स्टॉप करो
+        if (!currentAudio || currentAudio.ended) {
+            setTimeout(() => { if (!isStreaming && !streamBuffer.trim()) stopSpeech(); }, 800);
+        }
+        return;
+    }
+
+    const match = streamBuffer.match(/(.+?[।!?])/);
+    if (match) {
+        const sentence = match[1];
+        streamBuffer = streamBuffer.slice(sentence.length);
+        
+        if (useFallback) fallbackSpeak(sentence);
+        else speakChunk(sentence);
+    } else {
+        // अगर अभी टाइपिंग चल रही है
+        setTimeout(processStream, 300);
+    }
+}
+
+// 🔊 CHUNK: Preload और Error Handling के साथ
 function speakChunk(text) {
     if (!isPlaying || isPaused) return;
 
@@ -42,105 +86,34 @@ function speakChunk(text) {
     currentAudio.preload = "auto";
 
     currentAudio.onended = () => processStream();
+    currentAudio.onerror = () => { useFallback = true; fallbackSpeak(text); };
 
-    currentAudio.onerror = () => {
+    currentAudio.play().catch(() => {
         useFallback = true;
         fallbackSpeak(text);
-    };
-
-    currentAudio.play()
-        .then(() => startResumeSystem())
-        .catch(() => {
-            useFallback = true;
-            fallbackSpeak(text);
-        });
-}
-
-// 🔊 Fallback (Better on Mobile)
-function fallbackSpeak(text) {
-    if (!isPlaying || isPaused) return;
-
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'hi-IN';
-
-    // 📱 Mobile पर slow rate better रहता है
-    utter.rate = isMobile ? 0.95 : 1;
-
-    utter.onend = () => processStream();
-
-    window.speechSynthesis.speak(utter);
-}
-
-// 🚀 Stream Processor
-function processStream() {
-    if (!isPlaying || isPaused) return;
-
-    if (!streamBuffer.trim()) {
-        setTimeout(() => {
-            if (!streamBuffer.trim() && (!currentAudio || currentAudio.ended)) {
-                stopSpeech();
-            }
-        }, 600);
-        return;
-    }
-
-    const match = streamBuffer.match(/(.+?[।!?])/);
-
-    if (match) {
-        const sentence = match[1];
-        streamBuffer = streamBuffer.slice(sentence.length);
-
-        if (useFallback) fallbackSpeak(sentence);
-        else speakChunk(sentence);
-
-    } else {
-        setTimeout(processStream, 250);
-    }
-}
-
-// 🛑 STOP
-function stopSpeech() {
-    isPlaying = false;
-    isPaused = false;
-    streamBuffer = "";
-
-    window.speechSynthesis.cancel();
-
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.src = "";
-        currentAudio = null;
-    }
-
-    if (resumeInterval) {
-        clearInterval(resumeInterval);
-        resumeInterval = null;
-    }
-
-    // Reset buttons
-    document.querySelectorAll('.action-btn').forEach(btn => {
-        btn.innerText = "Listen 🔊";
     });
 }
 
-// ⏸️ Pause
-function pauseSpeech(btn) {
-    isPaused = true;
-    if (currentAudio) currentAudio.pause();
-    window.speechSynthesis.pause();
-    btn.innerText = "Resume ▶️";
+// 🔊 FALLBACK
+function fallbackSpeak(text) {
+    if (!isPlaying || isPaused) return;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'hi-IN';
+    utter.onend = () => processStream();
+    window.speechSynthesis.speak(utter);
 }
 
-// ▶️ Resume
+// ▶️ RESUME: सबसे ज़रूरी बदलाव
 function resumeSpeech(btn) {
     isPaused = false;
     btn.innerText = "Pause ⏸️";
 
     if (useFallback) {
         window.speechSynthesis.resume();
-        if (!window.speechSynthesis.speaking) processStream();
+        // अगर resume काम न करे तो restart करो
+        setTimeout(() => { if(!window.speechSynthesis.speaking) processStream(); }, 500);
     } else {
-        if (currentAudio && currentAudio.readyState >= 2) {
+        if (currentAudio) {
             currentAudio.play().catch(() => processStream());
         } else {
             processStream();
@@ -148,25 +121,24 @@ function resumeSpeech(btn) {
     }
 }
 
-// 🔁 Toggle (Safe)
-function toggleSpeech(btn) {
-    // 🚫 Spam Protection
-    if (btn.disabled) return;
-    btn.disabled = true;
-    setTimeout(() => btn.disabled = false, 300);
+// ⏸️ PAUSE
+function pauseSpeech(btn) {
+    isPaused = true;
+    if (currentAudio) currentAudio.pause();
+    if (window.speechSynthesis) window.speechSynthesis.pause();
+    btn.innerText = "Resume ▶️";
+}
 
+// 🔁 TOGGLE
+function toggleSpeech(btn) {
     if (!isPlaying) {
         const text = btn.closest('.bubble').querySelector('.text-content').innerText;
-
+        stopSpeech(); // पुराना सब साफ़ करो
         isPlaying = true;
-        isPaused = false;
-        useFallback = false;
-
+        isStreaming = true;
         streamBuffer = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
-
         processStream();
         btn.innerText = "Pause ⏸️";
-
     } else if (isPaused) {
         resumeSpeech(btn);
     } else {
@@ -174,45 +146,8 @@ function toggleSpeech(btn) {
     }
 }
 
-// 🎯 Button Hook
 function speakFromBubble(btn) {
     if (lastBtn && lastBtn !== btn) stopSpeech();
     lastBtn = btn;
     toggleSpeech(btn);
 }
-
-// 📋 COPY FUNCTIONS (Majhim AI Pro Utility)
-
-// 1. पूरे मैसेज को कॉपी करने के लिए
-function copyToClipboard(btn) {
-    const text = btn.closest('.bubble').querySelector('.text-content').innerText;
-    
-    navigator.clipboard.writeText(text).then(() => {
-        const old = btn.innerText;
-        btn.innerText = "COPIED ✅";
-        
-        // 2 सेकंड बाद बटन को वापस पुराना नाम दे दें
-        setTimeout(() => {
-            btn.innerText = old;
-        }, 2000);
-    }).catch(err => {
-        console.error("Copy failed:", err);
-    });
-}
-
-// 2. कोड ब्लॉक के अंदर के कोड को कॉपी करने के लिए
-function copyCode(btn) {
-    // बटन के बगल वाले <code> टैग से टेक्स्ट उठाना
-    const code = btn.parentElement.querySelector("code").innerText;
-    
-    navigator.clipboard.writeText(code).then(() => {
-        const old = btn.innerText;
-        btn.innerText = "Copied ✅";
-        
-        setTimeout(() => {
-            btn.innerText = old;
-        }, 2000);
-    }).catch(err => {
-        console.error("Code copy failed:", err);
-    });
-            }
