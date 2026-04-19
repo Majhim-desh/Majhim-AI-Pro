@@ -1,79 +1,110 @@
-// 🎤 UNIVERSAL VOICE ENGINE (The Final Fix)
+// 🎤 ULTIMATE VOICE ENGINE (Zero-Ghost Resume Edition)
 
 let currentAudio = null;
 let isPlaying = false;
 let isPaused = false;
-let isStreaming = false; // 👈 इसे ट्रैक करना ज़रूरी है
+let isFinished = false;
+let isCurrentlySpeaking = false; 
+
 let streamBuffer = "";
-let resumeInterval = null;
+let isStreaming = false;
 let lastBtn = null;
 let useFallback = false;
 
-const isMobile = /Android|iPhone/i.test(navigator.userAgent);
+let resumeInterval = null; // 🛡️ Global Timer Reference
 
-// 🛑 STOP: यह फंक्शन आवाज़ को "Unblock" करेगा
+// 🛡️ 1. SAFE RESUME SYSTEM (No Multiple Intervals)
+function startResumeSystem() {
+    // अगर पहले से कोई टाइमर है, तो उसे ख़त्म करो
+    if (resumeInterval) {
+        clearInterval(resumeInterval);
+    }
+
+    resumeInterval = setInterval(() => {
+        if (isPlaying && !isPaused && currentAudio && currentAudio.paused && !currentAudio.ended) {
+            currentAudio.play().catch(() => {});
+        }
+    }, 1200);
+}
+
+// 🛑 2. FULL RESET (All Cleanup)
 function stopSpeech() {
     isPlaying = false;
     isPaused = false;
+    isFinished = false;
+    isCurrentlySpeaking = false;
     isStreaming = false;
     streamBuffer = "";
 
-    // 1. Fallback को पूरी तरह साफ़ करो
-    if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-    }
-
-    // 2. Audio ऑब्जेक्ट को जड़ से खत्म करो
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.onended = null; // Memory leak रोको
-        currentAudio.onerror = null;
-        currentAudio.src = "";
-        currentAudio = null;
-    }
-
+    // 🛡️ Ghost Interval को मारो
     if (resumeInterval) {
         clearInterval(resumeInterval);
         resumeInterval = null;
     }
 
-    // 3. बटन्स को रिसेट करो
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.onended = null;
+        currentAudio.onerror = null;
+        currentAudio.src = "";
+        currentAudio = null;
+    }
+
     document.querySelectorAll('.action-btn').forEach(btn => {
-        if (btn.innerText.includes("Pause") || btn.innerText.includes("Resume")) {
-            btn.innerText = "Listen 🔊";
-        }
+        btn.innerText = "Listen 🔊";
     });
 }
 
-// 🚀 PROCESSOR: यहाँ Logic एकदम टाइट है
+// 🚀 3. PROCESSOR (Lock + Last Line Fix)
 function processStream() {
-    if (!isPlaying || isPaused) return;
+    if (!isPlaying || isPaused || isCurrentlySpeaking) return;
 
     if (!streamBuffer.trim()) {
-        isStreaming = false; 
-        // अगर बफर खाली है और आवाज़ खत्म हो गई है, तभी स्टॉप करो
-        if (!currentAudio || currentAudio.ended) {
-            setTimeout(() => { if (!isStreaming && !streamBuffer.trim()) stopSpeech(); }, 800);
-        }
+        isStreaming = false;
+        setTimeout(() => {
+            if (!streamBuffer.trim() && (!currentAudio || currentAudio.ended)) {
+                isFinished = true;
+                isPlaying = false;
+                if (lastBtn) lastBtn.innerText = "Listen 🔊";
+                
+                // काम खत्म तो पहरेदार को भी हटाओ
+                if (resumeInterval) {
+                    clearInterval(resumeInterval);
+                    resumeInterval = null;
+                }
+            }
+        }, 700);
         return;
     }
 
-    const match = streamBuffer.match(/(.+?[।!?])/);
+    let match = streamBuffer.match(/(.+?[।!?])/);
+    let sentence = "";
+
     if (match) {
-        const sentence = match[1];
+        sentence = match[1];
         streamBuffer = streamBuffer.slice(sentence.length);
-        
+    } else if (!isStreaming) { 
+        sentence = streamBuffer.trim();
+        streamBuffer = "";
+    }
+
+    if (sentence) {
+        isCurrentlySpeaking = true; 
         if (useFallback) fallbackSpeak(sentence);
         else speakChunk(sentence);
     } else {
-        // अगर अभी टाइपिंग चल रही है
-        setTimeout(processStream, 300);
+        setTimeout(processStream, 250);
     }
 }
 
-// 🔊 CHUNK: Preload और Error Handling के साथ
+// 🔊 4. CHUNK ENGINE (Interval Trigger)
 function speakChunk(text) {
-    if (!isPlaying || isPaused) return;
+    if (!isPlaying || isPaused) {
+        isCurrentlySpeaking = false; 
+        return;
+    }
 
     const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`;
 
@@ -85,64 +116,91 @@ function speakChunk(text) {
     currentAudio = new Audio(voiceUrl);
     currentAudio.preload = "auto";
 
-    currentAudio.onended = () => processStream();
-    currentAudio.onerror = () => { useFallback = true; fallbackSpeak(text); };
+    currentAudio.onended = () => {
+        isCurrentlySpeaking = false; 
+        processStream();
+    };
 
-    currentAudio.play().catch(() => {
+    currentAudio.onerror = () => {
+        isCurrentlySpeaking = false; 
         useFallback = true;
         fallbackSpeak(text);
-    });
+    };
+
+    currentAudio.play()
+        .then(() => {
+            // ✅ सिर्फ यहाँ से पहरेदार शुरू होगा
+            startResumeSystem();
+        })
+        .catch(() => {
+            isCurrentlySpeaking = false; 
+            useFallback = true;
+            fallbackSpeak(text);
+        });
 }
 
-// 🔊 FALLBACK
+// 🔊 5. FALLBACK
 function fallbackSpeak(text) {
-    if (!isPlaying || isPaused) return;
+    if (!isPlaying || isPaused) {
+        isCurrentlySpeaking = false;
+        return;
+    }
+    window.speechSynthesis.cancel(); 
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = 'hi-IN';
-    utter.onend = () => processStream();
+    utter.onend = () => {
+        isCurrentlySpeaking = false; 
+        processStream();
+    };
     window.speechSynthesis.speak(utter);
 }
 
-// ▶️ RESUME: सबसे ज़रूरी बदलाव
+// ▶️ 6. RESUME
 function resumeSpeech(btn) {
     isPaused = false;
     btn.innerText = "Pause ⏸️";
-
-    if (useFallback) {
-        window.speechSynthesis.resume();
-        // अगर resume काम न करे तो restart करो
-        setTimeout(() => { if(!window.speechSynthesis.speaking) processStream(); }, 500);
+    isCurrentlySpeaking = false; 
+    
+    if (currentAudio) {
+        currentAudio.play().then(() => startResumeSystem()).catch(() => processStream());
     } else {
-        if (currentAudio) {
-            currentAudio.play().catch(() => processStream());
-        } else {
-            processStream();
-        }
+        processStream();
     }
 }
 
-// ⏸️ PAUSE
+// ⏸️ 7. PAUSE
 function pauseSpeech(btn) {
     isPaused = true;
     if (currentAudio) currentAudio.pause();
     if (window.speechSynthesis) window.speechSynthesis.pause();
     btn.innerText = "Resume ▶️";
+    
+    // पॉज़ होने पर टाइमर बंद करो ताकि बैटरी न जले
+    if (resumeInterval) {
+        clearInterval(resumeInterval);
+        resumeInterval = null;
+    }
 }
 
-// 🔁 TOGGLE
+// 🔁 8. MAIN TOGGLE
 function toggleSpeech(btn) {
-    if (!isPlaying) {
-        const text = btn.closest('.bubble').querySelector('.text-content').innerText;
-        stopSpeech(); // पुराना सब साफ़ करो
+    const text = btn.closest('.bubble').querySelector('.text-content').innerText;
+
+    if (!isPlaying || isFinished) {
+        stopSpeech();
         isPlaying = true;
+        isPaused = false;
+        isFinished = false;
         isStreaming = true;
         streamBuffer = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
         processStream();
         btn.innerText = "Pause ⏸️";
-    } else if (isPaused) {
-        resumeSpeech(btn);
-    } else {
+    } 
+    else if (isPlaying && !isPaused) {
         pauseSpeech(btn);
+    } 
+    else if (isPaused) {
+        resumeSpeech(btn);
     }
 }
 
