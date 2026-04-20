@@ -1,25 +1,31 @@
-// 🎤 ULTIMATE STABLE ENGINE (No More Logic Fails)
+// 🎤 FINAL PRO VOICE ENGINE (No Freeze + Safe Split + Clean UI)
 
 let currentAudio = null;
 let isPlaying = false;
 let isPaused = false;
 let isFinished = false;
-let isCurrentlySpeaking = false; 
+let isSpeaking = false;
 
-let streamBuffer = "";
-let isStreaming = false;
+let queue = [];
+let index = 0;
 let lastBtn = null;
 let resumeInterval = null;
+let useFallback = false;
 
-// 1. 🛑 COMPLETE SYSTEM RESET
+// 🛑 RESET
 function stopSpeech() {
     isPlaying = false;
     isPaused = false;
     isFinished = false;
-    isCurrentlySpeaking = false;
-    streamBuffer = "";
+    isSpeaking = false;
 
-    if (resumeInterval) { clearInterval(resumeInterval); resumeInterval = null; }
+    queue = [];
+    index = 0;
+
+    if (resumeInterval) {
+        clearInterval(resumeInterval);
+        resumeInterval = null;
+    }
 
     if (currentAudio) {
         currentAudio.pause();
@@ -27,7 +33,8 @@ function stopSpeech() {
         currentAudio = null;
     }
 
-    // सभी बटनों को वापस अपनी असल हालत में लाओ
+    window.speechSynthesis.cancel();
+
     document.querySelectorAll('.action-btn').forEach(btn => {
         if (btn.innerText.includes("Pause") || btn.innerText.includes("Resume")) {
             btn.innerText = "Listen 🔊";
@@ -35,119 +42,192 @@ function stopSpeech() {
     });
 }
 
-// 2. 🚀 THE PROCESSOR (Wait & Speak Logic)
-function processStream() {
-    if (!isPlaying || isPaused || isCurrentlySpeaking) return;
+// ✂️ SAFE SPLIT (FIXED)
+function splitText(text) {
+    text = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक").trim();
 
-    if (!streamBuffer.trim()) {
-        isStreaming = false;
-        // अगर सब खत्म हो गया तो बटन रिसेट करो
+    // अगर punctuation नहीं है → पूरा text return
+    if (!/[।!?]/.test(text)) {
+        return [text];
+    }
+
+    return text
+        .split(/(?<=[।!?])\s*/)
+        .map(s => s.trim())
+        .filter(Boolean);
+}
+
+// 🚀 STREAM PUSH
+function streamSpeak(chunk) {
+    const parts = splitText(chunk);
+    queue.push(...parts);
+
+    if (!isPlaying) {
+        isPlaying = true;
+        processQueue();
+    }
+}
+
+// 🔁 PROCESSOR
+function processQueue() {
+    if (!isPlaying || isPaused || isSpeaking) return;
+
+    if (index >= queue.length) {
         setTimeout(() => {
-            if (!streamBuffer.trim() && (!currentAudio || currentAudio.ended)) {
+            if (index >= queue.length && !isSpeaking) {
                 finishSpeech();
             }
-        }, 800);
+        }, 400);
         return;
     }
 
-    // वाक्यों को काटना (। ! ?)
-    let match = streamBuffer.match(/(.+?[।!?])/);
-    let sentence = "";
-
-    if (match) {
-        sentence = match[1];
-        streamBuffer = streamBuffer.slice(sentence.length);
-    } else if (!isStreaming) { 
-        sentence = streamBuffer.trim();
-        streamBuffer = "";
-    }
-
-    if (sentence) {
-        speakChunk(sentence);
-    } else {
-        setTimeout(processStream, 300);
-    }
+    speak(queue[index]);
 }
 
-// 3. 🔊 THE VOICE ENGINE (Google TTS - Most Stable)
-function speakChunk(text) {
-    isCurrentlySpeaking = true;
-    const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`;
+// 🔊 AUDIO ENGINE (FULLY SAFE)
+function speak(text) {
+    if (!isPlaying || isPaused) return;
 
-    if (currentAudio) { currentAudio.src = ""; }
-    currentAudio = new Audio(voiceUrl);
+    isSpeaking = true;
+
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`;
+
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.src = "";
+    }
+
+    currentAudio = new Audio(url);
+    currentAudio.preload = "auto";
 
     currentAudio.onended = () => {
-        isCurrentlySpeaking = false;
-        processStream();
+        isSpeaking = false;
+        index++;
+        processQueue();
     };
 
     currentAudio.onerror = () => {
-        console.error("Audio Load Error");
-        isCurrentlySpeaking = false;
-        processStream(); // एरर आए तो अगले वाक्य पर जाओ, रुको मत
+        isSpeaking = false; // ✅ FIX
+        useFallback = true;
+        fallbackSpeak(text);
     };
 
-    currentAudio.play().then(() => {
-        // मोबाइल के लिए पहरेदार (Interval)
-        if (!resumeInterval) {
-            resumeInterval = setInterval(() => {
-                if (isPlaying && !isPaused && currentAudio && currentAudio.paused && !currentAudio.ended) {
-                    currentAudio.play().catch(()=>{});
-                }
-            }, 1500);
-        }
-    }).catch(() => {
-        isCurrentlySpeaking = false;
-        processStream();
-    });
+    currentAudio.play()
+        .then(startResumeGuard)
+        .catch(() => {
+            isSpeaking = false; // ✅ FIX
+            useFallback = true;
+            fallbackSpeak(text);
+        });
 }
 
-// 4. 🏁 FINISH SYSTEM
+// 🔊 FALLBACK
+function fallbackSpeak(text) {
+    if (!isPlaying || isPaused) return;
+
+    window.speechSynthesis.cancel();
+
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "hi-IN";
+
+    isSpeaking = true;
+
+    utter.onend = () => {
+        isSpeaking = false;
+        index++;
+        processQueue();
+    };
+
+    utter.onerror = () => {
+        isSpeaking = false; // ✅ FIX
+        index++;
+        processQueue();
+    };
+
+    window.speechSynthesis.speak(utter);
+}
+
+// 🛡️ RESUME GUARD
+function startResumeGuard() {
+    if (resumeInterval) clearInterval(resumeInterval);
+
+    resumeInterval = setInterval(() => {
+        if (isPlaying && !isPaused && currentAudio && currentAudio.paused && !currentAudio.ended) {
+            currentAudio.play().catch(() => {});
+        }
+    }, 1200);
+}
+
+// 🏁 FINISH (SAFE BUTTON RESET)
 function finishSpeech() {
     isPlaying = false;
     isFinished = true;
-    if (resumeInterval) { clearInterval(resumeInterval); resumeInterval = null; }
-    if (lastBtn && (lastBtn.innerText.includes("Pause") || lastBtn.innerText.includes("Resume"))) {
+    isSpeaking = false;
+
+    if (resumeInterval) {
+        clearInterval(resumeInterval);
+        resumeInterval = null;
+    }
+
+    // ✅ SAFE: सिर्फ lastBtn को बदलो
+    if (lastBtn && lastBtn.classList.contains("action-btn")) {
         lastBtn.innerText = "Listen 🔊";
     }
 }
 
-// 5. ⏸️ PAUSE/RESUME
+// ⏸️ PAUSE
 function pauseSpeech(btn) {
     isPaused = true;
+
     if (currentAudio) currentAudio.pause();
+    window.speechSynthesis.pause();
+
+    if (resumeInterval) {
+        clearInterval(resumeInterval);
+        resumeInterval = null;
+    }
+
     btn.innerText = "Resume ▶️";
 }
 
+// ▶️ RESUME
 function resumeSpeech(btn) {
     isPaused = false;
     btn.innerText = "Pause ⏸️";
-    if (currentAudio) currentAudio.play().catch(() => processStream());
-    else processStream();
+    isSpeaking = false;
+
+    if (currentAudio) {
+        currentAudio.play()
+            .then(startResumeGuard)
+            .catch(() => processQueue());
+    } else {
+        processQueue();
+    }
 }
 
-// 6. 🔁 THE BRAIN (Toggle Control)
+// 🔁 TOGGLE
 function toggleSpeech(btn) {
     const text = btn.closest('.bubble').querySelector('.text-content').innerText;
 
     if (!isPlaying || isFinished) {
         stopSpeech();
+
         isPlaying = true;
+        isPaused = false;
         isFinished = false;
-        isStreaming = true;
-        streamBuffer = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक"); // कोड को बोलने से हटाओ
-        processStream();
+
+        streamSpeak(text);
         btn.innerText = "Pause ⏸️";
-    } 
+    }
     else if (isPlaying && !isPaused) {
         pauseSpeech(btn);
-    } 
-    else if (isPaused) {
+    }
+    else {
         resumeSpeech(btn);
     }
 }
 
+// 🎯 HOOK
 function speakFromBubble(btn) {
     if (lastBtn && lastBtn !== btn) stopSpeech();
     lastBtn = btn;
