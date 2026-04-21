@@ -1,114 +1,22 @@
-// 🎤 MAJHIM AI PRO - FINAL HYBRID VOICE ENGINE
-// Fix: No double speech, No freeze, No button glitch, Mobile stable
+// 🎤 FINAL STABLE VOICE ENGINE (NO STREAM, PURE QUEUE)
 
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-const recognition = SpeechRecognition? new SpeechRecognition() : null;
+let queue = [];
+let index = 0;
 
-// 🔒 LOCK SYSTEM - ये सबसे जरूरी है
-let isCurrentlySpeaking = false;
+let isPlaying = false;
 let isPaused = false;
+let isSpeaking = false;
 
 let currentAudio = null;
-let useFallback = false;
-let streamBuffer = "";
-let activeBtn = null; // कौन सा बटन अभी एक्टिव है
+let activeBtn = null;
 
-const isMobile = /Android|iPhone/i.test(navigator.userAgent);
-
-// 🔊 Speak Chunk - Google TTS
-function speakChunk(text) {
-    if (!isCurrentlySpeaking || isPaused ||!text.trim()) {
-        if (!text.trim()) processStream(); // खाली है तो अगला
-        return;
-    }
-
-    const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`;
-
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.src = "";
-    }
-
-    currentAudio = new Audio(voiceUrl);
-    currentAudio.preload = "auto";
-
-    currentAudio.onended = () => {
-        // FIX: ended तुरंत नहीं आता, इसलिए थोड़ा वेट करो
-        setTimeout(processStream, 100);
-    };
-
-    currentAudio.onerror = () => {
-        useFallback = true;
-        fallbackSpeak(text);
-    };
-
-    currentAudio.play().catch(() => {
-        useFallback = true;
-        fallbackSpeak(text);
-    });
-}
-
-// 🔊 Fallback - Browser TTS
-function fallbackSpeak(text) {
-    if (!isCurrentlySpeaking || isPaused ||!text.trim()) {
-        if (!text.trim()) processStream();
-        return;
-    }
-
-    // FIX: पुरानी आवाज बंद करो पहले
-    window.speechSynthesis.cancel();
-
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'hi-IN';
-    utter.rate = isMobile? 0.95 : 1;
-
-    utter.onend = () => setTimeout(processStream, 100);
-    utter.onerror = () => setTimeout(processStream, 100);
-
-    window.speechSynthesis.speak(utter);
-}
-
-// 🚀 Stream Processor - दिमाग वाला पार्ट
-function processStream() {
-    if (!isCurrentlySpeaking || isPaused) return;
-
-    // FIX: Race condition का इलाज - चेक करो सच में खत्म हुआ या नहीं
-    const isAudioFinished =!currentAudio || currentAudio.ended;
-    const isSpeechFinished =!window.speechSynthesis.speaking;
-
-    if (!streamBuffer.trim() && isAudioFinished && isSpeechFinished) {
-        stopSpeech();
-        return;
-    }
-
-    if (!streamBuffer.trim()) {
-        setTimeout(processStream, 300); // अभी बज रहा है, वेट करो
-        return;
-    }
-
-    // FIX: आखिरी लाइन बिना । के भी बोलेगा
-    let match = streamBuffer.match(/(.+?[।!?])/);
-    let sentence;
-
-    if (match) {
-        sentence = match[1];
-        streamBuffer = streamBuffer.slice(sentence.length);
-    } else {
-        sentence = streamBuffer; // बचा हुआ सब बोल दो
-        streamBuffer = "";
-    }
-
-    if (useFallback) fallbackSpeak(sentence);
-    else speakChunk(sentence);
-}
-
-// 🛑 STOP - सब बंद, सब रीसेट
+// 🛑 RESET
 function stopSpeech() {
-    isCurrentlySpeaking = false;
+    isPlaying = false;
     isPaused = false;
-    streamBuffer = "";
-
-    window.speechSynthesis.cancel();
+    isSpeaking = false;
+    queue = [];
+    index = 0;
 
     if (currentAudio) {
         currentAudio.pause();
@@ -116,17 +24,117 @@ function stopSpeech() {
         currentAudio = null;
     }
 
-    // FIX: सिर्फ एक्टिव बटन रीसेट करो, सब नहीं
+    window.speechSynthesis.cancel();
+
     if (activeBtn) {
         activeBtn.innerText = "Listen 🔊";
         activeBtn = null;
     }
-    useFallback = false;
 }
 
-// ⏸️ Pause
+// ✂️ SAFE SPLIT (NO REGEX HEAVY)
+function splitText(text) {
+    text = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
+
+    let sentences = [];
+    let current = "";
+
+    for (let char of text) {
+        current += char;
+
+        if ("।!?.".includes(char)) {
+            sentences.push(current.trim());
+            current = "";
+        }
+    }
+
+    if (current.trim()) {
+        sentences.push(current.trim());
+    }
+
+    return sentences.length ? sentences : [text];
+}
+
+// 🔊 SPEAK
+function speak(text) {
+    if (!isPlaying || isPaused) return;
+
+    isSpeaking = true;
+
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`;
+
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.src = "";
+    }
+
+    currentAudio = new Audio(url);
+
+    currentAudio.onended = () => {
+        isSpeaking = false;
+        index++;
+        processQueue();
+    };
+
+    currentAudio.onerror = () => {
+        isSpeaking = false;
+        index++;
+        processQueue();
+    };
+
+    currentAudio.play().catch(() => {
+        fallbackSpeak(text);
+    });
+}
+
+// 🔊 FALLBACK
+function fallbackSpeak(text) {
+    window.speechSynthesis.cancel();
+
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "hi-IN";
+
+    utter.onend = () => {
+        isSpeaking = false;
+        index++;
+        processQueue();
+    };
+
+    window.speechSynthesis.speak(utter);
+}
+
+// 🔁 QUEUE PROCESSOR
+function processQueue() {
+    if (!isPlaying || isPaused || isSpeaking) return;
+
+    if (index >= queue.length) {
+        stopSpeech();
+        return;
+    }
+
+    speak(queue[index]);
+}
+
+// ▶️ START
+function startSpeech(btn) {
+    stopSpeech();
+
+    const text = btn.closest('.bubble').querySelector('.text-content').innerText;
+
+    queue = splitText(text);
+    index = 0;
+
+    isPlaying = true;
+    isPaused = false;
+    activeBtn = btn;
+
+    btn.innerText = "Pause ⏸️";
+
+    processQueue();
+}
+
+// ⏸️ PAUSE
 function pauseSpeech() {
-    if (!isCurrentlySpeaking || isPaused) return;
     isPaused = true;
 
     if (currentAudio) currentAudio.pause();
@@ -135,75 +143,81 @@ function pauseSpeech() {
     if (activeBtn) activeBtn.innerText = "Resume ▶️";
 }
 
-// ▶️ Resume
+// ▶️ RESUME
 function resumeSpeech() {
-    if (!isCurrentlySpeaking ||!isPaused) return;
     isPaused = false;
 
     if (activeBtn) activeBtn.innerText = "Pause ⏸️";
 
-    if (useFallback) {
-        window.speechSynthesis.resume();
-    } else if (currentAudio) {
-        currentAudio.play().catch(() => processStream());
-    }
-
-    // अगर कुछ नहीं बज रहा तो प्रोसेस फिर से शुरू करो
-    if (!window.speechSynthesis.speaking && (!currentAudio || currentAudio.paused)) {
-        processStream();
-    }
-}
-
-// 🔁 MAIN TOGGLE - सिर्फ यही बटन से कनेक्ट करना है
-function toggleSpeech(btn) {
-    // FIX: Lock - अगर पहले से बज रहा है और दूसरा बटन दबा तो पहले वाला बंद करो
-    if (isCurrentlySpeaking && activeBtn!== btn) {
-        stopSpeech();
-    }
-
-    // केस 1: कुछ नहीं बज रहा -> शुरू करो
-    if (!isCurrentlySpeaking) {
-        const text = btn.closest('.bubble').querySelector('.text-content').innerText;
-
-        isCurrentlySpeaking = true;
-        isPaused = false;
-        useFallback = false;
-        activeBtn = btn; // इस बटन को लॉक कर दिया
-
-        streamBuffer = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
-        btn.innerText = "Pause ⏸️";
-        processStream();
-
-    // केस 2: बज रहा है -> Pause या Resume करो
+    if (currentAudio) {
+        currentAudio.play().catch(() => processQueue());
     } else {
-        if (isPaused) {
-            resumeSpeech();
-        } else {
-            pauseSpeech();
-        }
+        processQueue();
     }
 }
 
-// 🎯 Button Hook - HTML में onclick="speakFromBubble(this)" यही रहेगा
+// 🔁 TOGGLE
+function toggleSpeech(btn) {
+    if (!isPlaying) {
+        startSpeech(btn);
+    } else if (isPaused) {
+        resumeSpeech();
+    } else {
+        pauseSpeech();
+    }
+}
+
+// 🎯 BUTTON
 function speakFromBubble(btn) {
+    if (activeBtn && activeBtn !== btn) stopSpeech();
     toggleSpeech(btn);
 }
 
-// 📋 COPY FUNCTIONS - ये सेम हैं
+// 📋 COPY (WITH FALLBACK)
 function copyToClipboard(btn) {
     const text = btn.closest('.bubble').querySelector('.text-content').innerText;
-    navigator.clipboard.writeText(text).then(() => {
-        const old = btn.innerText;
-        btn.innerText = "COPIED ✅";
-        setTimeout(() => { btn.innerText = old; }, 2000);
-    }).catch(err => { console.error("Copy failed:", err); });
-}
 
-function copyCode(btn) {
-    const code = btn.parentElement.querySelector("code").innerText;
-    navigator.clipboard.writeText(code).then(() => {
+    const success = () => {
         const old = btn.innerText;
         btn.innerText = "Copied ✅";
-        setTimeout(() => { btn.innerText = old; }, 2000);
-    }).catch(err => { console.error("Code copy failed:", err); });
+        setTimeout(() => btn.innerText = old, 2000);
+    };
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(success).catch(() => fallbackCopy(text, success));
+    } else {
+        fallbackCopy(text, success);
+    }
+}
+
+function fallbackCopy(text, cb) {
+    const t = document.createElement("textarea");
+    t.value = text;
+    document.body.appendChild(t);
+    t.select();
+    document.execCommand("copy");
+    document.body.removeChild(t);
+    cb();
+}
+// 💻 COPY CODE BLOCK (SAFE ADD-ON)
+function copyCode(btn) {
+    const codeEl = btn.closest('.code-block').querySelector('code');
+
+    if (!codeEl) return;
+
+    const code = codeEl.innerText;
+
+    const success = () => {
+        const old = btn.innerText;
+        btn.innerText = "Copied ✅";
+        setTimeout(() => btn.innerText = old, 2000);
+    };
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(code)
+            .then(success)
+            .catch(() => fallbackCopy(code, success));
+    } else {
+        fallbackCopy(code, success);
+    }
 }
