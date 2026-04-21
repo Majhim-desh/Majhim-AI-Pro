@@ -201,7 +201,11 @@ function fallbackCopy(text, cb) {
 }
 // 💻 COPY CODE FUNCTION (SAFE + FALLBACK)
 function copyCode(btn) {
-    const code = btn.closest('.code-block').querySelector("code").innerText;
+    const codeEl = btn.closest('.code-block')?.querySelector("code");
+
+    if (!codeEl) return; // 🛡️ safety
+
+    const code = codeEl.innerText;
 
     const success = () => {
         const old = btn.innerText;
