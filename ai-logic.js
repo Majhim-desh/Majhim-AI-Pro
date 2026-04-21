@@ -15,19 +15,23 @@ function addBubble(text, sender) {
     const div = document.createElement('div');
     div.className = `msg ${sender}`;
     let content = text;
-    
+
     if (sender === 'bot') {        
-       content = text.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => {
-   const cleanCode = code
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .trim();
-    return `
-    <div class="code-block">
-        <button class="copy-code-btn" onclick="copyCode(this)">Copy Code</button>
-        <pre><code class="language-${lang || 'javascript'}">${cleanCode}</code></pre>
-    </div>`;
-});
+        content = text.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => {
+            const cleanCode = code
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .trim();
+
+            return `
+            <div class="code-block">
+                <div class="code-header">
+                    <span>${lang || 'code'}</span>
+                    <button onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code class="language-${lang || 'javascript'}">${cleanCode}</code></pre>
+            </div>`;
+        });
     }
 
     const buttons = sender === 'bot' ? `
@@ -37,13 +41,13 @@ function addBubble(text, sender) {
         </div>` : '';
 
     div.innerHTML = `<div class="bubble"><div class="text-content">${content}</div>${buttons}</div>`;
-    chatBox.appendChild(div);
+    document.getElementById('chat-container').appendChild(div);
 
     if (sender === 'bot') {
         setTimeout(() => Prism.highlightAllUnder(div), 100);
     }
-    
-    chatBox.scrollTop = chatBox.scrollHeight;
+
+    document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
 }
 
 // ✅ 1. AI को मैसेज भेजने का फंक्शन (With Retry & Wait Logic)
