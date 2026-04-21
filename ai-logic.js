@@ -18,7 +18,10 @@ function addBubble(text, sender) {
     
     if (sender === 'bot') {        
        content = text.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => {
-    const cleanCode = code.trim();
+   const cleanCode = code
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .trim();
     return `
     <div class="code-block">
         <button class="copy-code-btn" onclick="copyCode(this)">Copy Code</button>
