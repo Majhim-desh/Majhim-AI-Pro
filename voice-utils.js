@@ -199,36 +199,9 @@ function fallbackCopy(text, cb) {
     document.body.removeChild(t);
     cb();
 }
-// 💻 COPY CODE BLOCK (SAFE ADD-ON)
+// 💻 COPY CODE FUNCTION (SAFE + FALLBACK)
 function copyCode(btn) {
-    const codeEl = btn.closest('.code-block').querySelector('code');
-
-    if (!codeEl) return;
-
-    const code = codeEl.innerText;
-
-    const success = () => {
-        const old = btn.innerText;
-        btn.innerText = "Copied ✅";
-        setTimeout(() => btn.innerText = old, 2000);
-    };
-
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(code)
-            .then(success)
-            .catch(() => fallbackCopy(code, success));
-    } else {
-        fallbackCopy(code, success);
-    }
-}
-
-// 💻 COPY CODE BLOCK (SAFE ADD-ON)
-function copyCode(btn) {
-    const codeEl = btn.closest('.code-block').querySelector('code');
-
-    if (!codeEl) return;
-
-    const code = codeEl.innerText;
+    const code = btn.closest('.code-block').querySelector("code").innerText;
 
     const success = () => {
         const old = btn.innerText;
