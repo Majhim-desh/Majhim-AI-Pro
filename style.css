@@ -1,246 +1,144 @@
-/* 🔥 MAJHIM AI PRO - UNIVERSAL MASTER CSS (REDMI 4A & OLD DEVICE OPTIMIZED) */
+/* 🔥 MAJHIM AI PRO - THE IMMORTAL UNIVERSAL CSS */
 
-/* 1. फॉन्ट इम्पोर्ट (Poppins, Inter, Fira Code) */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500&family=Fira+Code:wght@400;500&display=swap');
+/* फॉन्ट इम्पोर्ट - अगर पुराना ब्राउज़र इसे लोड न कर पाए तो भी fallback काम करेगा */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700&family=Inter:wght@400&display=swap');
 
 * { 
     box-sizing: border-box; 
     margin: 0; 
     padding: 0; 
-    -webkit-tap-highlight-color: transparent; 
 }
 
-/* 🔥 FULL HEIGHT FIX (FOR OLD AND NEW ANDROID) */
+/* 📱 ROOT FIX: पुराने ब्राउज़र्स के लिए % इस्तेमाल करना सबसे सेफ है */
 html, body {
     height: 100%;
     width: 100%;
+    background-color: #0b141a;
     overflow: hidden;
-    overscroll-behavior: none;
-    background: #0b141a;
+    position: fixed; /* कीबोर्ड खुलने पर स्क्रीन हिलने से रोकता है */
 }
 
 body { 
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+    font-family: 'Inter', Helvetica, Arial, sans-serif; 
     color: white; 
-    display: flex; 
+    display: flex;
+    display: -webkit-flex; /* पुराने Chrome/Safari के लिए */
     flex-direction: column;
-    height: 100vh;
-    height: 100dvh; /* Dynamic viewport for mobile browsers */
-    -webkit-font-smoothing: antialiased;
+    -webkit-flex-direction: column;
 }
 
-/* 🔥 HEADER: Responsive Size */
+/* --- 📱 HEADER: सबसे सुरक्षित पिक्सल वैल्यू --- */
 .header { 
     background: #202c33; 
-    padding: 10px 15px; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
+    height: 60px; /* फिक्स हाइट ताकि हेडर गायब न हो */
+    min-height: 60px;
+    padding: 0 15px;
+    display: flex;
+    display: -webkit-flex;
+    justify-content: space-between;
+    -webkit-justify-content: space-between;
+    align-items: center;
+    -webkit-align-items: center;
     border-bottom: 1px solid #333;
-    flex-shrink: 0;
-    z-index: 10;
+    z-index: 9999;
 }
 
 .header b { 
     font-family: 'Poppins', sans-serif;
     color: #00a884; 
-    font-size: clamp(16px, 4.5vw, 20px); /* छोटे स्क्रीन पर खुद छोटा होगा */
-    letter-spacing: 0.5px;
-    font-weight: 700;
+    font-size: 18px; /* फिक्स साइज छोटे स्क्रीन के लिए बेस्ट है */
 }
 
-/* 🔥 CHAT AREA: Scroll Safe */
+/* --- 💬 CHAT AREA: स्क्रॉल फिक्स --- */
 #chat-container { 
-    flex: 1; 
-    overflow-y: auto; 
-    padding: 10px 12px; 
-    display: flex;
-    flex-direction: column;
-    background: #0b141a url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); 
-    background-blend-mode: overlay;
-    background-attachment: fixed;
-    scroll-behavior: smooth;
+    flex: 1;
+    -webkit-flex: 1;
+    overflow-y: scroll; /* पुराने ब्राउज़र्स के लिए auto से बेहतर scroll है */
+    -webkit-overflow-scrolling: touch; /* आईफोन के स्मूथ स्क्रॉल के लिए */
+    background: #0b141a;
+    padding: 10px;
+    /* बैकग्राउंड इमेज को हटा दिया या सिंपल रखा ताकि पुराने फोन हैंग न हों */
 }
 
-/* 🔥 MESSAGE BUBBLES: Adaptive Width */
+/* --- 🧪 MESSAGE BUBBLES --- */
 .msg { 
-    display: flex; 
-    margin-bottom: 12px; 
-    animation: fadeIn 0.3s ease; 
     width: 100%;
-}
-
-@keyframes fadeIn { 
-    from { opacity: 0; transform: translateY(10px); } 
-    to { opacity: 1; } 
+    margin-bottom: 12px;
+    display: block; /* पुराने ब्राउज़र्स के लिए block सेफ है */
+    overflow: hidden;
 }
 
 .bubble { 
-    font-family: 'Inter', sans-serif;
-    padding: 10px 14px; 
-    border-radius: 15px; 
-    max-width: 88%; /* छोटे स्क्रीन पर ज्यादा जगह दी है */
-    font-size: clamp(14px, 3.8vw, 15px); 
-    position: relative; 
-    box-shadow: 0 1px 2px rgba(0,0,0,0.3); 
-    line-height: 1.5;
+    padding: 10px;
+    border-radius: 10px;
+    max-width: 85%;
+    font-size: 14px;
+    line-height: 1.4;
     word-wrap: break-word;
+    display: inline-block; /* पुराने ब्राउज़र्स के लिए सबसे सेफ */
 }
 
-/* बड़े स्क्रीन (Tablet/PC) के लिए बबल साइज */
-@media (min-width: 768px) {
-    .bubble { max-width: 70%; }
-}
+.user { text-align: right; }
+.user .bubble { background: #005c4b; color: white; border-top-right-radius: 0; }
 
-.user { justify-content: flex-end; }
-.user .bubble { 
-    background: #005c4b; 
-    color: white; 
-    border-top-right-radius: 2px; 
-}
+.bot { text-align: left; }
+.bot .bubble { background: #202c33; color: #e9edef; border-top-left-radius: 0; }
 
-.bot { justify-content: flex-start; }
-.bot .bubble { 
-    background: #202c33; 
-    color: #e9edef; 
-    border-top-left-radius: 2px; 
-}
-
-/* 🔥 CODE BLOCK: Full Width & Scroll Fix */
+/* --- 💻 CODE BLOCKS --- */
 .code-block { 
-    margin-top: 10px;
     background: #1a1a1a;
-    border-radius: 8px;
+    border-radius: 5px;
+    margin-top: 5px;
     border: 1px solid #333;
-    overflow: hidden; 
     width: 100%;
-}
-
-.code-header {
-    background: #2a3942;
-    padding: 6px 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.code-header span {
-    font-family: 'Fira Code', monospace;
-    font-size: 10px;
-    color: #00a884;
-    text-transform: uppercase;
-}
-
-.code-header button {
-    background: #00a884;
-    color: white;
-    border: none;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-family: 'Inter', sans-serif;
-    font-weight: bold;
-}
-
-pre, code { 
-    font-family: 'Fira Code', monospace !important; 
-    font-size: 12px;
-    font-variant-ligatures: contextual;
+    text-align: left;
 }
 
 pre { 
-    padding: 12px; 
-    overflow-x: auto; /* कोड ब्लॉक के अंदर ही स्क्रॉल होगा */
-    margin: 0;
-    line-height: 1.4;
-    white-space: pre;
+    padding: 8px;
+    overflow-x: auto;
+    font-size: 12px;
+    white-space: pre-wrap; /* पुराने ब्राउज़र्स में कोड बाहर नहीं भागेगा */
 }
 
-/* 🔥 ACTION BUTTONS: Wrapped for Small Screens */
-.btn-group { 
-    display: flex; 
-    flex-wrap: wrap; /* स्क्रीन छोटी होने पर बटन नीचे शिफ्ट हो जाएंगे */
-    justify-content: flex-start; 
-    gap: 8px; 
-    margin-top: 10px;
-    border-top: 1px solid #333;
-    padding-top: 10px;
-}
-
-.action-btn { 
-    font-family: 'Inter', sans-serif;
-    font-size: 10px; 
-    color: #e9edef; 
-    background: #3b4a54; 
-    padding: 5px 10px;
-    border-radius: 12px;
-    cursor: pointer; 
-    font-weight: 500; 
-    text-transform: uppercase;
-    border: none;
-}
-
-/* 🔥 INPUT AREA: Keyboard Safe */
+/* --- ⌨️ INPUT AREA: पत्थर जैसी मजबूती --- */
 .input-area { 
     background: #202c33; 
-    padding: 8px 10px; 
-    display: flex; 
-    align-items: center; 
-    gap: 8px;
-    flex-shrink: 0;
-    /* मोबाइल के नीचे के गैप और कीबोर्ड के लिए */
-    padding-bottom: calc(env(safe-area-inset-bottom, 8px) + 5px);
+    height: 70px; /* फिक्स हाइट */
+    min-height: 70px;
+    padding: 10px;
+    display: flex;
+    display: -webkit-flex;
+    align-items: center;
+    -webkit-align-items: center;
+    gap: 5px;
 }
 
 input { 
-    flex: 1; 
-    background: #2a3942; 
-    border: none; 
-    padding: 10px 15px; 
-    border-radius: 20px; 
-    color: white; 
-    outline: none; 
-    font-size: 16px; /* ❗ 16px से कम हुआ तो Redmi 4A पर स्क्रीन जूम हो जाएगी */
-    font-family: 'Inter', sans-serif;
-    min-width: 0;
+    flex: 1;
+    -webkit-flex: 1;
+    background: #2a3942;
+    border: none;
+    height: 40px;
+    padding: 0 15px;
+    border-radius: 20px;
+    color: white;
+    font-size: 16px; /* जूम रोकने के लिए 16px जरूरी है */
 }
 
 .round-btn { 
-    background: #00a884; 
-    border: none; 
-    width: 42px; 
-    height: 42px; 
-    border-radius: 50%; 
-    color: white; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
+    background: #00a884;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    border: none;
+    color: white;
     font-size: 18px;
-    flex-shrink: 0;
+    cursor: pointer;
 }
 
-#mic-btn { 
-    background: #3b4a54; 
-}
-
-/* 🔥 SMALL SCREEN ADJUSTMENTS (Redmi 4A Specific) */
-@media (max-width: 360px) {
-    .header { padding: 8px 10px; }
-    .bubble { max-width: 92%; padding: 8px 10px; }
-    .round-btn { width: 38px; height: 38px; font-size: 16px; }
-    .input-area { gap: 5px; padding: 6px; }
-}
-
-.typing { 
-    font-family: 'Inter', sans-serif;
-    font-size: 11px; 
-    color: #00a884; 
-    margin-left: 5px;
-}
-
-img { 
-    border-radius: 8px; 
-    margin-top: 8px; 
-    max-width: 100%;
-    height: auto;
+/* 📱 छोटे फोन और पुराने ब्राउज़र के लिए फाइनल फिक्स */
+@media screen and (max-width: 320px) {
+    .header b { font-size: 16px; }
+    input { font-size: 14px; }
 }
