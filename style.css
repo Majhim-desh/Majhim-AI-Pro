@@ -1,11 +1,15 @@
-/* 🔥 MAJHIM AI PRO - MASTER UNIVERSAL CSS */
+/* 🔥 MAJHIM AI PRO - MASTER UNIVERSAL CSS (FULL & FINAL) */
+
+/* 1. फॉन्ट इम्पोर्ट (Poppins, Inter, Fira Code) */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500&family=Fira+Code:wght@400;500&display=swap');
+
 * { 
     box-sizing: border-box; 
     margin: 0; 
     padding: 0; 
 }
 
-/* 🔥 FULL HEIGHT FIX (ALL DEVICES) */
+/* 🔥 FULL HEIGHT FIX */
 html, body {
     height: 100%;
     overflow: hidden;
@@ -14,15 +18,17 @@ html, body {
 }
 
 body { 
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    /* 📱 CHAT FONT: Inter */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
     color: white; 
     display: flex; 
     flex-direction: column;
     height: 100vh;
     height: 100dvh;
+    -webkit-font-smoothing: antialiased;
 }
 
-/* 🔥 HEADER FIX */
+/* 🔥 HEADER: Poppins */
 .header { 
     background: #202c33; 
     padding: 12px 15px; 
@@ -35,11 +41,14 @@ body {
 }
 
 .header b { 
+    font-family: 'Poppins', sans-serif;
     color: #00a884; 
-    font-size: 18px; 
+    font-size: 20px; 
+    letter-spacing: 0.8px;
+    font-weight: 700;
 }
 
-/* 🔥 CHAT AREA (SCROLL SAFE) */
+/* 🔥 CHAT AREA */
 #chat-container { 
     flex: 1; 
     overflow-y: auto; 
@@ -50,7 +59,6 @@ body {
     background-blend-mode: overlay;
     background-attachment: fixed;
     scroll-behavior: smooth;
-    /* नीचे स्पेस ताकि आखिरी मैसेज इनपुट के पीछे न छिपे */
     padding-bottom: 20px;
 }
 
@@ -67,13 +75,14 @@ body {
 }
 
 .bubble { 
+    font-family: 'Inter', sans-serif;
     padding: 12px 14px; 
     border-radius: 15px; 
     max-width: 85%; 
     font-size: 15px; 
     position: relative; 
     box-shadow: 0 1px 2px rgba(0,0,0,0.3); 
-    line-height: 1.4;
+    line-height: 1.5;
     word-wrap: break-word;
 }
 
@@ -91,66 +100,85 @@ body {
     border-top-left-radius: 0; 
 }
 
-/* 🔥 IMPROVED CODE BLOCK */
+/* 🔥 CODE BLOCK: Fira Code */
 .code-block { 
     margin-top: 10px;
     background: #1a1a1a;
     border-radius: 8px;
     border: 1px solid #333;
-    overflow: hidden; /* Header को अंदर रखने के लिए */
+    overflow: hidden; 
 }
 
 .code-header {
     background: #2a3942;
-    padding: 5px 12px;
+    padding: 6px 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 12px;
-    color: #b1b3b5;
+    border-bottom: 1px solid #333;
+}
+
+.code-header span {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    color: #00a884;
+    text-transform: uppercase;
+    font-weight: 500;
 }
 
 .code-header button {
     background: #00a884;
     color: white;
     border: none;
-    padding: 3px 8px;
+    padding: 4px 10px;
     border-radius: 4px;
     cursor: pointer;
     font-size: 11px;
+    font-family: 'Inter', sans-serif;
+    font-weight: bold;
+}
+
+pre, code { 
+    font-family: 'Fira Code', monospace !important; 
+    font-size: 13px;
+    font-variant-ligatures: contextual;
 }
 
 pre { 
     padding: 12px; 
     overflow-x: auto; 
     margin: 0;
-    font-size: 13px;
+    line-height: 1.4;
 }
 
-/* 🔥 ACTION BUTTONS (LISTEN/COPY) */
+/* 🔥 ACTION BUTTONS */
 .btn-group { 
     display: flex; 
     justify-content: flex-start; 
-    gap: 8px; 
+    gap: 10px; 
     margin-top: 12px;
     border-top: 1px solid #333;
-    padding-top: 8px;
+    padding-top: 10px;
 }
 
 .action-btn { 
-    font-size: 12px; 
-    color: #00a884; 
-    background: #2a3942; /* हल्का बैकग्राउंड ताकि क्लिक करने में आसानी हो */
+    font-family: 'Inter', sans-serif;
+    font-size: 11px; 
+    color: #e9edef; 
+    background: #3b4a54; 
     padding: 6px 12px;
-    border-radius: 20px;
+    border-radius: 15px;
     cursor: pointer; 
-    font-weight: bold; 
+    font-weight: 500; 
     text-transform: uppercase;
     transition: 0.2s;
+    border: none;
+    display: inline-flex;
+    align-items: center;
 }
 
 .action-btn:active {
-    background: #3b4a54;
+    background: #00a884;
     transform: scale(0.95);
 }
 
@@ -173,7 +201,8 @@ input {
     border-radius: 25px; 
     color: white; 
     outline: none; 
-    font-size: 16px; /* मोबाइल पर जूम रोकने के लिए 16px बेस्ट है */
+    font-size: 16px;
+    font-family: 'Inter', sans-serif;
 }
 
 .round-btn { 
@@ -195,8 +224,9 @@ input {
     background: #3b4a54; 
 }
 
-/* 🔥 TYPING & IMAGES */
+/* 🔥 EXTRA */
 .typing { 
+    font-family: 'Inter', sans-serif;
     font-size: 12px; 
     color: #00a884; 
     margin-left: 8px;
