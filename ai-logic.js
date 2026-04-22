@@ -14,10 +14,13 @@ async function sendMsg() {
 function addBubble(text, sender) {
     const div = document.createElement('div');
     div.className = `msg ${sender}`;
-    let content = text;
+    
+    let htmlContent = text;
+    let rawTextForVoice = text; // वॉइस इंजन के लिए साफ टेक्स्ट
 
     if (sender === 'bot') {        
-        content = text.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => {
+        // कोड ब्लॉक्स को सजाने के लिए
+        htmlContent = text.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => {
             const cleanCode = code
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;")
@@ -27,30 +30,39 @@ function addBubble(text, sender) {
             <div class="code-block">
                 <div class="code-header">
                     <span>${lang || 'code'}</span>
-                    <button onclick="copyCode(this)">Copy</button>
+                    <button onclick="copyCode(this)">Copy 💻</button>
                 </div>
                 <pre><code class="language-${lang || 'javascript'}">${cleanCode}</code></pre>
             </div>`;
         });
+        
+        // वॉइस इंजन के लिए: कोड हटाकर सिर्फ "कोड ब्लॉक" शब्द रखें
+        rawTextForVoice = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
     }
 
     const buttons = sender === 'bot' ? `
-        <div class="btn-group">
-            <span class="action-btn" onclick="speakFromBubble(this)">Listen 🔊</span>
-            <span class="action-btn" onclick="copyToClipboard(this)">Copy Text</span>
+        <div class="btn-group" style="margin-top:10px; display:flex; gap:10px;">
+            <button class="action-btn" onclick="speakFromBubble(this)" style="cursor:pointer; background:#00a884; color:white; border:none; padding:5px 10px; border-radius:5px;">Listen 🔊</button>
+            <button class="action-btn" onclick="copyToClipboard(this)" style="cursor:pointer; background:#444; color:white; border:none; padding:5px 10px; border-radius:5px;">Copy Text</button>
         </div>` : '';
 
-    div.innerHTML = `<div class="bubble"><div class="text-content">${content}</div>${buttons}</div>`;
-    document.getElementById('chat-container').appendChild(div);
+    // 🔥 STRUCTURE: text-content में सिर्फ टेक्स्ट जाए और HTML अलग रहे
+    div.innerHTML = `
+        <div class="bubble">
+            <div class="text-content">${htmlContent}</div>
+            ${buttons}
+        </div>`;
+
+    chatBox.appendChild(div);
 
     if (sender === 'bot') {
         setTimeout(() => Prism.highlightAllUnder(div), 100);
     }
 
-    document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
+    chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// ✅ 1. AI को मैसेज भेजने का फंक्शन (With Retry & Wait Logic)
+// ✅ 1. AI API Call (Groq Llama 3)
 async function callChatGPT(query) {
     const typingUI = document.getElementById('typing-ui');
     if (typingUI) typingUI.style.display = 'inline';
@@ -60,28 +72,20 @@ async function callChatGPT(query) {
         let attempts = 0;
         const maxAttempts = 3;
 
-        // 🔄 RETRY LOOP: जब तक चाबी न मिले, कोशिश करते रहो
         while (!key && attempts < maxAttempts) {
-            console.log(`Key fetch attempt: ${attempts + 1}`);
             key = await getAIKey(); 
-            
             if (!key) {
                 attempts++;
-                if (attempts < maxAttempts) {
-                    // अगर चाबी नहीं मिली, तो 1.5 सेकंड रुको और फिर कोशिश करो
-                    await new Promise(res => setTimeout(res, 1500)); 
-                }
+                if (attempts < maxAttempts) await new Promise(res => setTimeout(res, 1500)); 
             }
         }
 
-        // अगर 3 कोशिशों के बाद भी चाबी न मिले
         if (!key) {
             addBubble("भाई, API Key लोड नहीं हो पाई। थोड़ा इंतज़ार करके पेज रिफ्रेश करो।", 'bot');
             if (typingUI) typingUI.style.display = 'none';
             return;
         }
 
-        // 🚀 असली API कॉल (जब चाबी मिल जाए)
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 
@@ -95,39 +99,26 @@ async function callChatGPT(query) {
         });
 
         const data = await res.json();
-        
         if (data.choices && data.choices[0]) {
-            const reply = data.choices[0].message.content;
-            addBubble(reply, 'bot');
+            addBubble(data.choices[0].message.content, 'bot');
         } else {
             addBubble("AI से जवाब नहीं मिल पाया, दोबारा कोशिश करें।", 'bot');
         }
-
     } catch (e) { 
         console.error("Chat Error:", e);
         addBubble("नेटवर्क में कुछ गड़बड़ है भाई, इंटरनेट चेक करो!", 'bot');
     }
-
-    // काम खत्म होने पर टाइपिंग इंडिकेटर छुपाओ
     if (typingUI) typingUI.style.display = 'none';
 }
 
-// ✅ 2. इमेज बनाने का फंक्शन
+// ✅ 2. Image Generator
 async function generateAIImage(prompt) {
-    const typingUI = document.getElementById('typing-ui');
-    if (typingUI) typingUI.style.display = 'none'; 
-    
     addBubble("🎨 Drawing...", 'bot');
     const url = `https://pollinations.ai/p/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Math.random()}`;
     addBubble(`<img src="${url}" style="width:100%; border-radius:10px; margin-top:10px;" alt="AI Generated">`, 'bot');
 }
 
-// ✅ 3. कीबोर्ड का 'Enter' बटन सपोर्ट
-const inputField = document.getElementById('user-input');
-if (inputField) {
-    inputField.addEventListener("keypress", (e) => { 
-        if (e.key === "Enter") {
-            sendMsg();
-        }
-    });
-}
+// ✅ 3. Enter Key Support
+userInput.addEventListener("keypress", (e) => { 
+    if (e.key === "Enter") sendMsg();
+});
