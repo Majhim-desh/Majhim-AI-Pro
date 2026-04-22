@@ -1,16 +1,13 @@
 // 🎤 FINAL STABLE VOICE ENGINE (NO STREAM, PURE QUEUE)
-
 let queue = [];
 let index = 0;
-
 let isPlaying = false;
 let isPaused = false;
 let isSpeaking = false;
-
 let currentAudio = null;
 let activeBtn = null;
 
-// 🛑 RESET
+// 🛑 RESET: इंजन को पूरी तरह रोकने के लिए
 function stopSpeech() {
     isPlaying = false;
     isPaused = false;
@@ -32,16 +29,15 @@ function stopSpeech() {
     }
 }
 
-// ✂️ SAFE SPLIT (NO REGEX HEAVY)
-// ✂️ SAFE SPLIT (Google TTS 200-Char Limit Fix)
+// ✂️ SAFE SPLIT: Google TTS की 200-अक्षर सीमा और "Last Line" बग का परमानेंट इलाज
 function splitText(text) {
-    // कोड ब्लॉक को सुरक्षित बदलें
+    // 1. कोड ब्लॉक को हटाकर सिर्फ शब्द रखें ताकि TTS अटके नहीं
     text = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
 
     let sentences = [];
     let current = "";
 
-    // 1. पहले विराम चिन्हों (।!?.) पर तोड़ें
+    // 2. विराम चिन्हों पर तोड़ें
     for (let char of text) {
         current += char;
         if ("।!?.".includes(char)) {
@@ -49,15 +45,19 @@ function splitText(text) {
             current = "";
         }
     }
-    if (current.trim()) sentences.push(current.trim());
+    
+    // 🔥 CRITICAL FIX: अगर आखिरी लाइन में फुलस्टॉप नहीं है, तो उसे भी जोड़ें
+    if (current.trim()) {
+        sentences.push(current.trim());
+    }
 
-    // 2. 🔥 EXTRA SAFETY: 180 अक्षर से लंबी लाइन को और छोटा करें
+    // 3. पक्का करें कि कोई भी लाइन 180 अक्षर से बड़ी न हो
     let finalQueue = [];
     sentences.forEach(s => {
         if (s.length < 180) {
             finalQueue.push(s);
         } else {
-            // लंबी लाइन को स्पेस (शब्दों) के आधार पर काटें
+            // बहुत लंबी लाइनों को शब्दों (Space) के आधार पर काटें
             let words = s.split(' ');
             let chunk = '';
             words.forEach(w => {
@@ -72,14 +72,14 @@ function splitText(text) {
         }
     });
 
-    return finalQueue.length ? finalQueue : [text];
+    return finalQueue.filter(line => line.length > 0);
 }
-// 🔊 SPEAK
+
+// 🔊 SPEAK: लाइन बजाने के लिए
 function speak(text) {
     if (!isPlaying || isPaused) return;
 
     isSpeaking = true;
-
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`;
 
     if (currentAudio) {
@@ -96,20 +96,16 @@ function speak(text) {
     };
 
     currentAudio.onerror = () => {
-        isSpeaking = false;
-        index++;
-        processQueue();
+        // अगर ऑनलाइन TTS फेल हो, तो ब्राउजर का अपना वॉइस (Fallback) इस्तेमाल करें
+        fallbackSpeak(text);
     };
 
-    currentAudio.play().catch(() => {
-        fallbackSpeak(text);
-    });
+    currentAudio.play().catch(() => fallbackSpeak(text));
 }
 
-// 🔊 FALLBACK
+// 🔊 FALLBACK: ऑफलाइन/फेल होने पर ब्राउजर वॉइस का सहारा
 function fallbackSpeak(text) {
     window.speechSynthesis.cancel();
-
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = "hi-IN";
 
@@ -118,11 +114,10 @@ function fallbackSpeak(text) {
         index++;
         processQueue();
     };
-
     window.speechSynthesis.speak(utter);
 }
 
-// 🔁 QUEUE PROCESSOR
+// 🔁 QUEUE PROCESSOR: एक के बाद एक लाइन चलाने वाला दिमाग
 function processQueue() {
     if (!isPlaying || isPaused || isSpeaking) return;
 
@@ -130,52 +125,43 @@ function processQueue() {
         stopSpeech();
         return;
     }
-
     speak(queue[index]);
 }
 
-// ▶️ START
+// ▶️ START/TOGGLE functions (as you provided)
 function startSpeech(btn) {
     stopSpeech();
+    const textContent = btn.closest('.bubble').querySelector('.text-content');
+    if (!textContent) return;
 
-    const text = btn.closest('.bubble').querySelector('.text-content').innerText;
-
+    const text = textContent.innerText;
     queue = splitText(text);
     index = 0;
-
     isPlaying = true;
     isPaused = false;
     activeBtn = btn;
-
     btn.innerText = "Pause ⏸️";
-
     processQueue();
 }
 
-// ⏸️ PAUSE
 function pauseSpeech() {
     isPaused = true;
-
     if (currentAudio) currentAudio.pause();
     window.speechSynthesis.pause();
-
     if (activeBtn) activeBtn.innerText = "Resume ▶️";
 }
 
-// ▶️ RESUME
 function resumeSpeech() {
     isPaused = false;
-
     if (activeBtn) activeBtn.innerText = "Pause ⏸️";
-
     if (currentAudio) {
         currentAudio.play().catch(() => processQueue());
     } else {
         processQueue();
     }
+    window.speechSynthesis.resume();
 }
 
-// 🔁 TOGGLE
 function toggleSpeech(btn) {
     if (!isPlaying) {
         startSpeech(btn);
@@ -186,16 +172,14 @@ function toggleSpeech(btn) {
     }
 }
 
-// 🎯 BUTTON
 function speakFromBubble(btn) {
     if (activeBtn && activeBtn !== btn) stopSpeech();
     toggleSpeech(btn);
 }
 
-// 📋 COPY (WITH FALLBACK)
+// 📋 COPY FUNCTIONS
 function copyToClipboard(btn) {
     const text = btn.closest('.bubble').querySelector('.text-content').innerText;
-
     const success = () => {
         const old = btn.innerText;
         btn.innerText = "Copied ✅";
@@ -209,6 +193,23 @@ function copyToClipboard(btn) {
     }
 }
 
+function copyCode(btn) {
+    const codeEl = btn.closest('.code-block')?.querySelector("code");
+    if (!codeEl) return;
+    const code = codeEl.innerText;
+    const success = () => {
+        const old = btn.innerText;
+        btn.innerText = "Copied ✅";
+        setTimeout(() => btn.innerText = old, 2000);
+    };
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(code).then(success).catch(() => fallbackCopy(code, success));
+    } else {
+        fallbackCopy(code, success);
+    }
+}
+
 function fallbackCopy(text, cb) {
     const t = document.createElement("textarea");
     t.value = text;
@@ -217,26 +218,4 @@ function fallbackCopy(text, cb) {
     document.execCommand("copy");
     document.body.removeChild(t);
     cb();
-}
-// 💻 COPY CODE FUNCTION (SAFE + FALLBACK)
-function copyCode(btn) {
-    const codeEl = btn.closest('.code-block')?.querySelector("code");
-
-    if (!codeEl) return; // 🛡️ safety
-
-    const code = codeEl.innerText;
-
-    const success = () => {
-        const old = btn.innerText;
-        btn.innerText = "Copied ✅";
-        setTimeout(() => btn.innerText = old, 2000);
-    };
-
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(code)
-            .then(success)
-            .catch(() => fallbackCopy(code, success));
-    } else {
-        fallbackCopy(code, success);
-    }
 }
