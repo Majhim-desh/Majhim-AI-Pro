@@ -33,28 +33,47 @@ function stopSpeech() {
 }
 
 // ✂️ SAFE SPLIT (NO REGEX HEAVY)
+// ✂️ SAFE SPLIT (Google TTS 200-Char Limit Fix)
 function splitText(text) {
+    // कोड ब्लॉक को सुरक्षित बदलें
     text = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
 
     let sentences = [];
     let current = "";
 
+    // 1. पहले विराम चिन्हों (।!?.) पर तोड़ें
     for (let char of text) {
         current += char;
-
         if ("।!?.".includes(char)) {
             sentences.push(current.trim());
             current = "";
         }
     }
+    if (current.trim()) sentences.push(current.trim());
 
-    if (current.trim()) {
-        sentences.push(current.trim());
-    }
+    // 2. 🔥 EXTRA SAFETY: 180 अक्षर से लंबी लाइन को और छोटा करें
+    let finalQueue = [];
+    sentences.forEach(s => {
+        if (s.length < 180) {
+            finalQueue.push(s);
+        } else {
+            // लंबी लाइन को स्पेस (शब्दों) के आधार पर काटें
+            let words = s.split(' ');
+            let chunk = '';
+            words.forEach(w => {
+                if ((chunk + w).length < 180) {
+                    chunk += w + ' ';
+                } else {
+                    finalQueue.push(chunk.trim());
+                    chunk = w + ' ';
+                }
+            });
+            if (chunk.trim()) finalQueue.push(chunk.trim());
+        }
+    });
 
-    return sentences.length ? sentences : [text];
+    return finalQueue.length ? finalQueue : [text];
 }
-
 // 🔊 SPEAK
 function speak(text) {
     if (!isPlaying || isPaused) return;
