@@ -1,4 +1,4 @@
-/* 🔥 MAJHIM AI PRO - MASTER UNIVERSAL CSS (FULL & FINAL) */
+/* 🔥 MAJHIM AI PRO - UNIVERSAL MASTER CSS (REDMI 4A & OLD DEVICE OPTIMIZED) */
 
 /* 1. फॉन्ट इम्पोर्ट (Poppins, Inter, Fira Code) */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500&family=Fira+Code:wght@400;500&display=swap');
@@ -7,31 +7,32 @@
     box-sizing: border-box; 
     margin: 0; 
     padding: 0; 
+    -webkit-tap-highlight-color: transparent; 
 }
 
-/* 🔥 FULL HEIGHT FIX */
+/* 🔥 FULL HEIGHT FIX (FOR OLD AND NEW ANDROID) */
 html, body {
     height: 100%;
+    width: 100%;
     overflow: hidden;
     overscroll-behavior: none;
     background: #0b141a;
 }
 
 body { 
-    /* 📱 CHAT FONT: Inter */
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
     color: white; 
     display: flex; 
     flex-direction: column;
     height: 100vh;
-    height: 100dvh;
+    height: 100dvh; /* Dynamic viewport for mobile browsers */
     -webkit-font-smoothing: antialiased;
 }
 
-/* 🔥 HEADER: Poppins */
+/* 🔥 HEADER: Responsive Size */
 .header { 
     background: #202c33; 
-    padding: 12px 15px; 
+    padding: 10px 15px; 
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
@@ -43,30 +44,30 @@ body {
 .header b { 
     font-family: 'Poppins', sans-serif;
     color: #00a884; 
-    font-size: 20px; 
-    letter-spacing: 0.8px;
+    font-size: clamp(16px, 4.5vw, 20px); /* छोटे स्क्रीन पर खुद छोटा होगा */
+    letter-spacing: 0.5px;
     font-weight: 700;
 }
 
-/* 🔥 CHAT AREA */
+/* 🔥 CHAT AREA: Scroll Safe */
 #chat-container { 
     flex: 1; 
     overflow-y: auto; 
-    padding: 15px; 
+    padding: 10px 12px; 
     display: flex;
     flex-direction: column;
     background: #0b141a url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); 
     background-blend-mode: overlay;
     background-attachment: fixed;
     scroll-behavior: smooth;
-    padding-bottom: 20px;
 }
 
-/* 🔥 MESSAGE BUBBLES */
+/* 🔥 MESSAGE BUBBLES: Adaptive Width */
 .msg { 
     display: flex; 
-    margin-bottom: 15px; 
+    margin-bottom: 12px; 
     animation: fadeIn 0.3s ease; 
+    width: 100%;
 }
 
 @keyframes fadeIn { 
@@ -76,37 +77,43 @@ body {
 
 .bubble { 
     font-family: 'Inter', sans-serif;
-    padding: 12px 14px; 
+    padding: 10px 14px; 
     border-radius: 15px; 
-    max-width: 85%; 
-    font-size: 15px; 
+    max-width: 88%; /* छोटे स्क्रीन पर ज्यादा जगह दी है */
+    font-size: clamp(14px, 3.8vw, 15px); 
     position: relative; 
     box-shadow: 0 1px 2px rgba(0,0,0,0.3); 
     line-height: 1.5;
     word-wrap: break-word;
 }
 
+/* बड़े स्क्रीन (Tablet/PC) के लिए बबल साइज */
+@media (min-width: 768px) {
+    .bubble { max-width: 70%; }
+}
+
 .user { justify-content: flex-end; }
 .user .bubble { 
     background: #005c4b; 
     color: white; 
-    border-top-right-radius: 0; 
+    border-top-right-radius: 2px; 
 }
 
 .bot { justify-content: flex-start; }
 .bot .bubble { 
     background: #202c33; 
     color: #e9edef; 
-    border-top-left-radius: 0; 
+    border-top-left-radius: 2px; 
 }
 
-/* 🔥 CODE BLOCK: Fira Code */
+/* 🔥 CODE BLOCK: Full Width & Scroll Fix */
 .code-block { 
     margin-top: 10px;
     background: #1a1a1a;
     border-radius: 8px;
     border: 1px solid #333;
     overflow: hidden; 
+    width: 100%;
 }
 
 .code-header {
@@ -115,126 +122,125 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid #333;
 }
 
 .code-header span {
     font-family: 'Fira Code', monospace;
-    font-size: 11px;
+    font-size: 10px;
     color: #00a884;
     text-transform: uppercase;
-    font-weight: 500;
 }
 
 .code-header button {
     background: #00a884;
     color: white;
     border: none;
-    padding: 4px 10px;
+    padding: 4px 8px;
     border-radius: 4px;
-    cursor: pointer;
-    font-size: 11px;
+    font-size: 10px;
     font-family: 'Inter', sans-serif;
     font-weight: bold;
 }
 
 pre, code { 
     font-family: 'Fira Code', monospace !important; 
-    font-size: 13px;
+    font-size: 12px;
     font-variant-ligatures: contextual;
 }
 
 pre { 
     padding: 12px; 
-    overflow-x: auto; 
+    overflow-x: auto; /* कोड ब्लॉक के अंदर ही स्क्रॉल होगा */
     margin: 0;
     line-height: 1.4;
+    white-space: pre;
 }
 
-/* 🔥 ACTION BUTTONS */
+/* 🔥 ACTION BUTTONS: Wrapped for Small Screens */
 .btn-group { 
     display: flex; 
+    flex-wrap: wrap; /* स्क्रीन छोटी होने पर बटन नीचे शिफ्ट हो जाएंगे */
     justify-content: flex-start; 
-    gap: 10px; 
-    margin-top: 12px;
+    gap: 8px; 
+    margin-top: 10px;
     border-top: 1px solid #333;
     padding-top: 10px;
 }
 
 .action-btn { 
     font-family: 'Inter', sans-serif;
-    font-size: 11px; 
+    font-size: 10px; 
     color: #e9edef; 
     background: #3b4a54; 
-    padding: 6px 12px;
-    border-radius: 15px;
+    padding: 5px 10px;
+    border-radius: 12px;
     cursor: pointer; 
     font-weight: 500; 
     text-transform: uppercase;
-    transition: 0.2s;
     border: none;
-    display: inline-flex;
-    align-items: center;
 }
 
-.action-btn:active {
-    background: #00a884;
-    transform: scale(0.95);
-}
-
-/* 🔥 INPUT AREA */
+/* 🔥 INPUT AREA: Keyboard Safe */
 .input-area { 
     background: #202c33; 
-    padding: 10px; 
+    padding: 8px 10px; 
     display: flex; 
     align-items: center; 
     gap: 8px;
     flex-shrink: 0;
-    padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 10px);
+    /* मोबाइल के नीचे के गैप और कीबोर्ड के लिए */
+    padding-bottom: calc(env(safe-area-inset-bottom, 8px) + 5px);
 }
 
 input { 
     flex: 1; 
     background: #2a3942; 
     border: none; 
-    padding: 12px 18px; 
-    border-radius: 25px; 
+    padding: 10px 15px; 
+    border-radius: 20px; 
     color: white; 
     outline: none; 
-    font-size: 16px;
+    font-size: 16px; /* ❗ 16px से कम हुआ तो Redmi 4A पर स्क्रीन जूम हो जाएगी */
     font-family: 'Inter', sans-serif;
+    min-width: 0;
 }
 
 .round-btn { 
     background: #00a884; 
     border: none; 
-    width: 48px; 
-    height: 48px; 
+    width: 42px; 
+    height: 42px; 
     border-radius: 50%; 
     color: white; 
     display: flex; 
     align-items: center; 
     justify-content: center; 
-    font-size: 22px; 
-    flex-shrink: 0; 
-    cursor: pointer;
+    font-size: 18px;
+    flex-shrink: 0;
 }
 
 #mic-btn { 
     background: #3b4a54; 
 }
 
-/* 🔥 EXTRA */
+/* 🔥 SMALL SCREEN ADJUSTMENTS (Redmi 4A Specific) */
+@media (max-width: 360px) {
+    .header { padding: 8px 10px; }
+    .bubble { max-width: 92%; padding: 8px 10px; }
+    .round-btn { width: 38px; height: 38px; font-size: 16px; }
+    .input-area { gap: 5px; padding: 6px; }
+}
+
 .typing { 
     font-family: 'Inter', sans-serif;
-    font-size: 12px; 
+    font-size: 11px; 
     color: #00a884; 
-    margin-left: 8px;
+    margin-left: 5px;
 }
 
 img { 
-    border-radius: 10px; 
+    border-radius: 8px; 
     margin-top: 8px; 
     max-width: 100%;
-    border: 1px solid #333;
+    height: auto;
 }
