@@ -1,4 +1,39 @@
-// 🎤 FINAL STABLE VOICE ENGINE (NO STREAM, PURE QUEUE)
+// ==========================================
+// 🎤 VOICE TYPING (MIC BUTTON LOGIC)
+// ==========================================
+function startVoiceTyping() {
+    const inputField = document.getElementById('user-input');
+    const micBtn = document.getElementById('mic-btn');
+    
+    if (!('webkitSpeechRecognition' in window)) {
+        alert("Sorry, your browser does not support speech recognition.");
+        return;
+    }
+
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = 'hi-IN'; // हिंदी सपोर्ट के लिए
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+        micBtn.innerText = "🛑";
+        micBtn.style.background = "#ff4444";
+    };
+
+    recognition.onresult = (event) => {
+        inputField.value = event.results[0][0].transcript;
+    };
+
+    recognition.onend = () => {
+        micBtn.innerText = "🎤";
+        micBtn.style.background = "#00a884";
+    };
+
+    recognition.start();
+}
+
+// ==========================================
+// 🎤 FINAL STABLE VOICE ENGINE (PURE QUEUE)
+// ==========================================
 let queue = [];
 let index = 0;
 let isPlaying = false;
@@ -29,7 +64,7 @@ function stopSpeech() {
     }
 }
 
-// ✂️ SAFE SPLIT: Google TTS की 200-अक्षर सीमा और "Last Line" बग का परमानेंट इलाज
+// ✂️ SAFE SPLIT: Google TTS की 200-अक्षर सीमा और "Last Line" फिक्स
 function splitText(text) {
     // 1. कोड ब्लॉक को हटाकर सिर्फ शब्द रखें ताकि TTS अटके नहीं
     text = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
@@ -37,7 +72,7 @@ function splitText(text) {
     let sentences = [];
     let current = "";
 
-    // 2. विराम चिन्हों पर तोड़ें
+    // 2. विराम चिन्हों पर तोड़ें
     for (let char of text) {
         current += char;
         if ("।!?.".includes(char)) {
@@ -46,12 +81,12 @@ function splitText(text) {
         }
     }
     
-    // 🔥 CRITICAL FIX: अगर आखिरी लाइन में फुलस्टॉप नहीं है, तो उसे भी जोड़ें
+    // 🔥 CRITICAL FIX: अगर आखिरी लाइन में फुलस्टॉप नहीं है, तो उसे भी जोड़ें
     if (current.trim()) {
         sentences.push(current.trim());
     }
 
-    // 3. पक्का करें कि कोई भी लाइन 180 अक्षर से बड़ी न हो
+    // 3. पक्का करें कि कोई भी लाइन 180 अक्षर से बड़ी न हो
     let finalQueue = [];
     sentences.forEach(s => {
         if (s.length < 180) {
@@ -128,7 +163,7 @@ function processQueue() {
     speak(queue[index]);
 }
 
-// ▶️ START/TOGGLE functions (as you provided)
+// ▶️ CONTROL FUNCTIONS
 function startSpeech(btn) {
     stopSpeech();
     const textContent = btn.closest('.bubble').querySelector('.text-content');
@@ -177,7 +212,9 @@ function speakFromBubble(btn) {
     toggleSpeech(btn);
 }
 
-// 📋 COPY FUNCTIONS
+// ==========================================
+// 📋 COPY FUNCTIONS (TEXT & CODE)
+// ==========================================
 function copyToClipboard(btn) {
     const text = btn.closest('.bubble').querySelector('.text-content').innerText;
     const success = () => {
