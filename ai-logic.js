@@ -62,52 +62,39 @@ function addBubble(text, sender) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// ✅ 1. AI API Call (Groq Llama 3)
+// ✅ AI API Call through Cloudflare Worker
 async function callChatGPT(query) {
     const typingUI = document.getElementById('typing-ui');
     if (typingUI) typingUI.style.display = 'inline';
 
     try {
-        let key = null;
-        let attempts = 0;
-        const maxAttempts = 3;
-
-        while (!key && attempts < maxAttempts) {
-            key = await getAIKey(); 
-            if (!key) {
-                attempts++;
-                if (attempts < maxAttempts) await new Promise(res => setTimeout(res, 1500)); 
+        const res = await fetch(
+            'https://groq-proxy.bnmadheshi108.workers.dev',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: query
+                })
             }
-        }
-
-        if (!key) {
-            addBubble("भाई, API Key लोड नहीं हो पाई। थोड़ा इंतज़ार करके पेज रिफ्रेश करो।", 'bot');
-            if (typingUI) typingUI.style.display = 'none';
-            return;
-        }
-
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${key}` 
-            },
-            body: JSON.stringify({ 
-                model: "llama-3.1-8b-instant", 
-                messages: [{role: "user", content: query}] 
-            })
-        });
+        );
 
         const data = await res.json();
+
         if (data.choices && data.choices[0]) {
             addBubble(data.choices[0].message.content, 'bot');
         } else {
+            console.error("Worker response:", data);
             addBubble("AI से जवाब नहीं मिल पाया, दोबारा कोशिश करें।", 'bot');
         }
-    } catch (e) { 
+
+    } catch (e) {
         console.error("Chat Error:", e);
         addBubble("नेटवर्क में कुछ गड़बड़ है भाई, इंटरनेट चेक करो!", 'bot');
     }
+
     if (typingUI) typingUI.style.display = 'none';
 }
 
