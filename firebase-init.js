@@ -79,14 +79,3 @@ function observeAuth() {
         }
     });
 }
-
-
-// ✅ यह चेक करने के लिए कि क्या Groq Key आ रही है
-setTimeout(async () => {
-    const testKey = await getAIKey();
-    if(testKey && testKey.trim() !== "") {
-        console.log("Groq Key Loaded Successfully ✅");
-    } else {
-        alert("Alert: Remote Config से Groq Key नहीं मिल पाई! ❌");
-    }
-}, 4000);
