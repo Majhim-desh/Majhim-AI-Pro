@@ -1,4 +1,4 @@
-// 1. Config (Firebase की चाबी यहाँ वापस डाल दी ताकि सिस्टम तुरंत चालू हो जाए)
+// 1. Firebase Config
 const firebaseConfig = {
     apiKey: "AIzaSyCL4YKtPYxxhLoGwjw7A_81WWYBsOQZmoQ", 
     authDomain: "majhim-ai.firebaseapp.com",
@@ -10,29 +10,15 @@ const firebaseConfig = {
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-const remoteConfig = firebase.remoteConfig();
-
-// 🔥 IMPORTANT: डेटा तुरंत खींचने के लिए सेटिंग्स
-remoteConfig.settings.minimumFetchIntervalMillis = 0;
-
-// 🛡️ DEFAULT VALUES
-remoteConfig.defaultConfig = {
-    'OPENAI_API_KEY': ''
-};
 
 let auth = firebase.auth();
 let provider = new firebase.auth.GoogleAuthProvider();
 
-// 🔑 सीधे ऑथेंटिकेशन और रिमोट कॉन्फ़िग सेटअप करें
+// 🔑 सीधे ऑथेंटिकेशन सेटअप करें
 async function setupSystem() {
     try {
-        // Firebase चालू हो चुका है, बस रिमोट कॉन्फ़िग को बैकग्राउंड में ताज़ा करें
-        await remoteConfig.fetchAndActivate();
-        console.log("Remote Config Initialized ✅");
-        
         handleRedirectResult();
         observeAuth();
-        
         console.log("Majhim System: Ready 🚀");
     } catch (err) {
         console.error("Setup Error:", err);
