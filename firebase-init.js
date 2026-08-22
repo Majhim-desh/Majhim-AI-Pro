@@ -80,24 +80,6 @@ function observeAuth() {
     });
 }
 
-// 🔑 AI Key लाने वाला फंक्शन (Groq के लिए - ai-logic.js इसे कॉल करेगा)
-async function getAIKey() {
-    try { 
-        await remoteConfig.fetchAndActivate(); 
-        let key = remoteConfig.getValue('OPENAI_API_KEY').asString();
-        
-        if (!key || key.trim() === "") {
-            console.log("Key not found, retrying...");
-            await new Promise(res => setTimeout(res, 2000)); // 2 सेकंड इंतज़ार
-            await remoteConfig.activate();
-            key = remoteConfig.getValue('OPENAI_API_KEY').asString();
-        }
-        return key; 
-    } catch (err) { 
-        console.error("Remote Config Error:", err);
-        return null; 
-    }
-}
 
 // ✅ यह चेक करने के लिए कि क्या Groq Key आ रही है
 setTimeout(async () => {
