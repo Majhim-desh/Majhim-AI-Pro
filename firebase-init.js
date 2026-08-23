@@ -39,14 +39,30 @@ async function login() {
     if (loginBtn) loginBtn.disabled = true;
 
     try {
-        const result = await auth.signInWithPopup(provider);
-        console.log("User Logged In:", result.user.displayName);
-    } catch (error) {
-        console.error("Login Error:", error);
+        console.log("LOGIN: Starting...");
+        console.log("LOGIN: Current URL:", window.location.href);
+        console.log("LOGIN: Origin:", window.location.origin);
+        console.log("LOGIN: Auth Domain:", firebaseConfig.authDomain);
+        console.log("LOGIN: Project ID:", firebaseConfig.projectId);
 
-        if (error.code !== "auth/popup-closed-by-user") {
-            alert("Google Login नहीं हो पाया: " + error.message);
-        }
+        const result = await auth.signInWithPopup(provider);
+
+        console.log("LOGIN SUCCESS:", result.user);
+        
+    } catch (error) {
+        console.error("========== GOOGLE LOGIN ERROR ==========");
+        console.error("Code:", error.code);
+        console.error("Message:", error.message);
+        console.error("Name:", error.name);
+        console.error("Full Error:", error);
+        console.error("========================================");
+
+        alert(
+            "Login Error\n\n" +
+            "Code: " + error.code + "\n\n" +
+            "Message: " + error.message
+        );
+
     } finally {
         loginInProgress = false;
         if (loginBtn) loginBtn.disabled = false;
