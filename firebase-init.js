@@ -28,18 +28,28 @@ async function setupSystem() {
 setupSystem();
 
 // --- Auth Functions ---
+let loginInProgress = false;
+
 async function login() {
-    if (!auth) {
-        alert("सिस्टम लोड हो रहा है, थोड़ा इंतज़ार करें...");
-        return;
-    }
+    if (!auth || loginInProgress) return;
+
+    loginInProgress = true;
+
+    const loginBtn = document.getElementById('login-btn');
+    if (loginBtn) loginBtn.disabled = true;
 
     try {
         const result = await auth.signInWithPopup(provider);
         console.log("User Logged In:", result.user.displayName);
     } catch (error) {
         console.error("Login Error:", error);
-        alert("Google Login नहीं हो पाया: " + error.message);
+
+        if (error.code !== "auth/popup-closed-by-user") {
+            alert("Google Login नहीं हो पाया: " + error.message);
+        }
+    } finally {
+        loginInProgress = false;
+        if (loginBtn) loginBtn.disabled = false;
     }
 }
 
