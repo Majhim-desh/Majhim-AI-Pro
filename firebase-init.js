@@ -17,7 +17,6 @@ let provider = new firebase.auth.GoogleAuthProvider();
 // 🔑 सीधे ऑथेंटिकेशन सेटअप करें
 async function setupSystem() {
     try {
-        handleRedirectResult();
         observeAuth();
         console.log("Majhim System: Ready 🚀");
     } catch (err) {
