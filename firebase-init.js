@@ -29,9 +29,19 @@ async function setupSystem() {
 setupSystem();
 
 // --- Auth Functions ---
-function login() {
-    if (!auth) return alert("सिस्टम लोड हो रहा है, थोड़ा इंतज़ार करें...");
-    auth.signInWithRedirect(provider);
+async function login() {
+    if (!auth) {
+        alert("सिस्टम लोड हो रहा है, थोड़ा इंतज़ार करें...");
+        return;
+    }
+
+    try {
+        const result = await auth.signInWithPopup(provider);
+        console.log("User Logged In:", result.user.displayName);
+    } catch (error) {
+        console.error("Login Error:", error);
+        alert("Google Login नहीं हो पाया: " + error.message);
+    }
 }
 
 function logout() {
