@@ -111,7 +111,12 @@ async function callChatGPT(query) {
         const data = await res.json();
 
         if (data.choices && data.choices[0]) {
-            addBubble(data.choices[0].message.content, 'bot');
+            const aiResponse = data.choices[0].message.content;
+
+            addBubble(aiResponse, 'bot');
+
+            // 🔥 Login user की chat Firestore में save करें
+            await saveChatToFirestore(query, aiResponse);
         } else {
             console.error("Worker response:", data);
             addBubble("AI से जवाब नहीं मिल पाया, दोबारा कोशिश करें।", 'bot');
