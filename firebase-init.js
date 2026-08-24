@@ -13,6 +13,7 @@ firebase.initializeApp(firebaseConfig);
 
 let auth = firebase.auth();
 let provider = new firebase.auth.GoogleAuthProvider();
+let db = firebase.firestore();
 
 // 🔑 सीधे ऑथेंटिकेशन सेटअप करें
 async function setupSystem() {
