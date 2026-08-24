@@ -91,13 +91,22 @@ function observeAuth() {
 
         if (user) {
             if (loginBtn) loginBtn.style.display = 'none';
+
             if (userProfile) {
                 userProfile.style.display = 'flex';
                 userName.innerText = user.displayName.split(' ')[0];
             }
+
+            // 🧹 चैट बॉक्स साफ़ करके पुरानी चैट लोड करें (ताकि डुप्लीकेट न हो)
+            if (chatBox) chatBox.innerHTML = '';
+            loadChatHistory();
+
         } else {
             if (loginBtn) loginBtn.style.display = 'block';
-            if (userProfile) userProfile.style.display = 'none';
+
+            if (userProfile) {
+                userProfile.style.display = 'none';
+            }
         }
     });
 }
