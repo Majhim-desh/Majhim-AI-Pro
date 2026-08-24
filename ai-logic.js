@@ -2,6 +2,33 @@
 const chatBox = document.getElementById('chat-container');
 const userInput = document.getElementById('user-input');
 
+// 🔥 Firestore: User Chat Save
+async function saveChatToFirestore(userMessage, aiResponse) {
+    const user = auth.currentUser;
+
+    // अगर user login नहीं है तो history save नहीं होगी
+    if (!user) return;
+
+    try {
+        const chatRef = db
+            .collection("users")
+            .doc(user.uid)
+            .collection("chats")
+            .doc();
+
+        await chatRef.set({
+            userMessage: userMessage,
+            aiResponse: aiResponse,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        console.log("✅ Chat saved to Firestore:", chatRef.id);
+
+    } catch (error) {
+        console.error("❌ Firestore Save Error:", error);
+    }
+}
+
 async function sendMsg() {
     const text = userInput.value.trim();
     if (!text) return;
