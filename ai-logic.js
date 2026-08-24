@@ -29,6 +29,40 @@ async function saveChatToFirestore(userMessage, aiResponse) {
     }
 }
 
+// 📥 Firestore: User Chat History Load
+async function loadChatHistory() {
+    const user = auth.currentUser;
+
+    // Login नहीं है तो history load नहीं होगी
+    if (!user) return;
+
+    try {
+        const snapshot = await db
+            .collection("users")
+            .doc(user.uid)
+            .collection("chats")
+            .orderBy("createdAt", "asc")
+            .get();
+
+        snapshot.forEach((doc) => {
+            const chat = doc.data();
+
+            if (chat.userMessage) {
+                addBubble(chat.userMessage, 'user');
+            }
+
+            if (chat.aiResponse) {
+                addBubble(chat.aiResponse, 'bot');
+            }
+        });
+
+        console.log("✅ Chat history loaded:", snapshot.size);
+
+    } catch (error) {
+        console.error("❌ Firestore Load Error:", error);
+    }
+}
+
 async function sendMsg() {
     const text = userInput.value.trim();
     if (!text) return;
