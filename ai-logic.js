@@ -2,6 +2,9 @@
 const chatBox = document.getElementById('chat-container');
 const userInput = document.getElementById('user-input');
 
+// 🆔 करंट चालू चैट की ID ट्रैक करने के लिए
+let currentConversationId = null;
+
 // 🔥 Firestore: User Chat Save
 async function saveChatToFirestore(userMessage, aiResponse) {
     const user = auth.currentUser;
