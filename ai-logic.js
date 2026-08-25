@@ -5,27 +5,31 @@ const userInput = document.getElementById('user-input');
 // 🆔 करंट चालू चैट की ID ट्रैक करने के लिए
 let currentConversationId = null;
 
-// 🔥 Firestore: User Chat Save
+// 🔥 Firestore: Dynamic Conversation under Message Save
 async function saveChatToFirestore(userMessage, aiResponse) {
     const user = auth.currentUser;
 
-    // अगर user login नहीं है तो history save नहीं होगी
-    if (!user) return;
+    if (!user || !currentConversationId) return;
 
     try {
-        const chatRef = db
+        const conversationRef = db
             .collection("users")
             .doc(user.uid)
-            .collection("chats")
+            .collection("conversations")
+            .doc(currentConversationId);
+
+        const messageRef = conversationRef
+            .collection("messages")
             .doc();
 
-        await chatRef.set({
+        await messageRef.set({
             userMessage: userMessage,
             aiResponse: aiResponse,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        console.log("✅ Chat saved to Firestore:", chatRef.id);
+        console.log("✅ Message saved:", messageRef.id);
+        console.log("🆔 Conversation:", currentConversationId);
 
     } catch (error) {
         console.error("❌ Firestore Save Error:", error);
