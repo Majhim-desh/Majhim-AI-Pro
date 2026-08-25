@@ -97,7 +97,7 @@ function observeAuth() {
                 userName.innerText = user.displayName.split(' ')[0];
             }
 
-            // 🧹 चैट बॉक्स साफ़ करके पुरानी चैट लोड करें (ताकि डुप्लीकेट न हो)
+            // 🧹 Chat box साफ करें और Conversation List लोड करें
             if (chatBox) chatBox.innerHTML = '';
             loadConversationList();
 
