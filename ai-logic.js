@@ -69,10 +69,21 @@ async function loadChatHistory() {
 async function sendMsg() {
     const text = userInput.value.trim();
     if (!text) return;
+
+    // 🆕 अगर current conversation नहीं है तो नई ID बनाएं
+    if (!currentConversationId) {
+        currentConversationId = crypto.randomUUID();
+        console.log("🆕 New Conversation ID:", currentConversationId);
+    }
+
     addBubble(text, 'user');
     userInput.value = '';
-    if (text.startsWith("/image ")) generateAIImage(text.replace("/image ", ""));
-    else callChatGPT(text);
+
+    if (text.startsWith("/image ")) {
+        generateAIImage(text.replace("/image ", ""));
+    } else {
+        callChatGPT(text);
+    }
 }
 
 function addBubble(text, sender) {
