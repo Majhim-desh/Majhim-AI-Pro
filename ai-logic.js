@@ -97,6 +97,30 @@ async function loadChatHistory() {
     }
 }
 
+// 📋 Firestore: Conversation List Load
+async function loadConversationList() {
+    const user = auth.currentUser;
+
+    if (!user) return;
+
+    try {
+        const snapshot = await db
+            .collection("users")
+            .doc(user.uid)
+            .collection("conversations")
+            .get();
+
+        console.log("📋 Conversations found:", snapshot.size);
+
+        snapshot.forEach((doc) => {
+            console.log("🆔 Conversation ID:", doc.id);
+        });
+
+    } catch (error) {
+        console.error("❌ Conversation List Error:", error);
+    }
+}
+
 async function sendMsg() {
     const text = userInput.value.trim();
     if (!text) return;
