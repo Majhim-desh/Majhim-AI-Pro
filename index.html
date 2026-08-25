@@ -4,35 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Majhim AI Pro</title>
-    
+
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">    
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>    
+    <!-- HEADER -->
     <div class="header">
-        <div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <!-- ☰ Hamburger Button Sidebar Toggle karne ke liye -->
+            <button id="menu-btn" onclick="toggleSidebar()" style="background:transparent; border:none; color:white; font-size:20px; cursor:pointer;">☰</button>
             <b>Majhim AI Pro</b> 
             <span class="typing" id="typing-ui" style="display:none;">typing...</span>
         </div>
 
         <div id="auth-section">
-
-            <button
-    id="new-chat-btn"
-    onclick="startNewChat()"
-    style="background:transparent; border:1px solid #00a884; color:#00a884; padding:4px 10px; border-radius:15px; font-size:12px; cursor:pointer;">
-    + New Chat
+            <button id="new-chat-btn" onclick="startNewChat()" style="background:transparent; border:1px solid #00a884; color:#00a884; padding:4px 10px; border-radius:15px; font-size:12px; cursor:pointer;">
+                + New Chat
             </button>
 
             <button id="login-btn" onclick="login()" style="background:transparent; border:1px solid #00a884; color:#00a884; padding:4px 10px; border-radius:15px; font-size:12px; cursor:pointer;">Login</button>
-            
+
             <div id="user-profile" style="display:none; align-items:center; gap:8px;">
                 <span id="user-name" style="font-size:12px; color:#00a884; font-weight:bold;"></span>
                 <button onclick="logout()" style="background:transparent; border:none; color:#ff4444; font-size:10px; cursor:pointer;">Logout</button>
@@ -40,13 +39,31 @@
         </div>
     </div>
 
-    <div id="chat-container"></div>
+    <!-- MAIN WRAPPER (Sidebar + Chat Area) -->
+    <div class="main-wrapper">
+        <!-- 📱 Sidebar Component -->
+        <div id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <span>Conversations</span>
+                <button onclick="toggleSidebar()" class="close-btn">✕</button>
+            </div>
+            <button onclick="startNewChat(); toggleSidebar();" class="sidebar-new-btn">➕ New Chat</button>
+            <div id="conversation-list" class="conversation-list">
+                <!-- JavaScript se list render hogi -->
+            </div>
+        </div>
 
+        <!-- Mobile Background Blur Overlay -->
+        <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+        <!-- 💬 Chat Container -->
+        <div id="chat-container"></div>
+    </div>
+
+    <!-- INPUT AREA -->
     <div class="input-area">
         <button class="round-btn" id="mic-btn" onclick="startVoiceTyping()">🎤</button>
-        
         <input type="text" id="user-input" placeholder="Type or speak...">
-        
         <button class="round-btn" onclick="sendMsg()">➔</button>
     </div>
 
@@ -55,18 +72,25 @@
     <script src="voice-utils.js"></script>
 
     <script>
-        // HTML load hone ke baad focus input field par rahe
+        // Sidebar Toggle Functionality
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if (sidebar && overlay) {
+                sidebar.classList.toggle('open');
+                overlay.classList.toggle('active');
+            }
+        }
+
         window.onload = () => {
             document.getElementById('user-input').focus();
         };
 
-        // Enter key se message send karne ke liye
         document.getElementById('user-input').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 sendMsg();
             }
         });
     </script>
-    
 </body>
 </html>
