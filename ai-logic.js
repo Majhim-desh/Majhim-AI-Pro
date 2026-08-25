@@ -36,64 +36,44 @@ async function saveChatToFirestore(userMessage, aiResponse) {
     }
 }
 
-// 📥 Firestore: User Conversations & Messages Load
-async function loadChatHistory() {
+// 📥 Firestore: Selected Conversation के Messages Load करें
+async function loadChatHistory(conversationId) {
     const user = auth.currentUser;
 
-    // Login नहीं है तो history load नहीं होगी
-    if (!user) return;
+    // Login नहीं है या Conversation ID नहीं मिली तो लोड नहीं होगा
+    if (!user || !conversationId) return;
 
     try {
-        const conversationsSnapshot = await db
+        // स्क्रीन साफ करें और Current ID सेट करें
+        if (chatBox) chatBox.innerHTML = '';
+        currentConversationId = conversationId;
+
+        const messagesSnapshot = await db
             .collection("users")
             .doc(user.uid)
             .collection("conversations")
+            .doc(conversationId)
+            .collection("messages")
+            .orderBy("createdAt", "asc")
             .get();
 
-        let totalMessages = 0;
+        // सिर्फ इसी Conversation के Messages स्क्रीन पर दिखाएँ
+        messagesSnapshot.forEach((messageDoc) => {
+            const chat = messageDoc.data();
 
-        // सभी conversations पढ़ें
-        for (const conversationDoc of conversationsSnapshot.docs) {
+            if (chat.userMessage) {
+                addBubble(chat.userMessage, 'user');
+            }
 
-            const conversationId = conversationDoc.id;
+            if (chat.aiResponse) {
+                addBubble(chat.aiResponse, 'bot');
+            }
+        });
 
-            const messagesSnapshot = await db
-                .collection("users")
-                .doc(user.uid)
-                .collection("conversations")
-                .doc(conversationId)
-                .collection("messages")
-                .orderBy("createdAt", "asc")
-                .get();
-
-            // Messages स्क्रीन पर दिखाएँ
-            messagesSnapshot.forEach((messageDoc) => {
-                const chat = messageDoc.data();
-
-                if (chat.userMessage) {
-                    addBubble(chat.userMessage, 'user');
-                }
-
-                if (chat.aiResponse) {
-                    addBubble(chat.aiResponse, 'bot');
-                }
-
-                totalMessages++;
-            });
-        }
-
-        console.log(
-            "✅ Conversations loaded:",
-            conversationsSnapshot.size
-        );
-
-        console.log(
-            "✅ Total messages loaded:",
-            totalMessages
-        );
+        console.log("✅ Messages loaded for conversation:", conversationId);
 
     } catch (error) {
-        console.error("❌ Firestore Conversation Load Error:", error);
+        console.error("❌ Single Conversation Load Error:", error);
     }
 }
 
