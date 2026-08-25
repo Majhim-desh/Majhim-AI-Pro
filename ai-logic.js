@@ -222,9 +222,9 @@ userInput.addEventListener("keypress", (e) => {
 });
 
 
-// ============================================
+// =========================================
 // 🆕 4. New Chat Management / Navigation Logic
-// ============================================
+// =========================================
 
 function startNewChat() {
     currentConversationId = null;
