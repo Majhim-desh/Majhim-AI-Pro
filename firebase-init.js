@@ -99,7 +99,6 @@ function observeAuth() {
 
             // 🧹 चैट बॉक्स साफ़ करके पुरानी चैट लोड करें (ताकि डुप्लीकेट न हो)
             if (chatBox) chatBox.innerHTML = '';
-            loadChatHistory();
             loadConversationList();
 
         } else {
