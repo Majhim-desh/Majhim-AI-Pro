@@ -1,6 +1,5 @@
 /* 🔥 MAJHIM AI PRO - THE IMMORTAL UNIVERSAL CSS */
 
-/* फॉन्ट इम्पोर्ट - अगर पुराना ब्राउज़र इसे लोड न कर पाए तो भी fallback काम करेगा */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700&family=Inter:wght@400&display=swap');
 
 * { 
@@ -9,28 +8,27 @@
     padding: 0; 
 }
 
-/* 📱 ROOT FIX: पुराने ब्राउज़र्स के लिए % इस्तेमाल करना सबसे सेफ है */
 html, body {
     height: 100%;
     width: 100%;
     background-color: #0b141a;
     overflow: hidden;
-    position: fixed; /* कीबोर्ड खुलने पर स्क्रीन हिलने से रोकता है */
+    position: fixed;
 }
 
 body { 
     font-family: 'Inter', Helvetica, Arial, sans-serif; 
     color: white; 
     display: flex;
-    display: -webkit-flex; /* पुराने Chrome/Safari के लिए */
+    display: -webkit-flex;
     flex-direction: column;
     -webkit-flex-direction: column;
 }
 
-/* --- 📱 HEADER: सबसे सुरक्षित पिक्सल वैल्यू --- */
+/* --- 📱 HEADER --- */
 .header { 
     background: #202c33; 
-    height: 60px; /* फिक्स हाइट ताकि हेडर गायब न हो */
+    height: 60px; 
     min-height: 60px;
     padding: 0 15px;
     display: flex;
@@ -40,31 +38,141 @@ body {
     align-items: center;
     -webkit-align-items: center;
     border-bottom: 1px solid #333;
-    z-index: 9999;
+    z-index: 1000;
 }
 
 .header b { 
     font-family: 'Poppins', sans-serif;
     color: #00a884; 
-    font-size: 18px; /* फिक्स साइज छोटे स्क्रीन के लिए बेस्ट है */
+    font-size: 18px; 
+}
+
+/* --- 🧱 MAIN WRAPPER (NEW) --- */
+.main-wrapper {
+    flex: 1;
+    -webkit-flex: 1;
+    display: flex;
+    display: -webkit-flex;
+    position: relative;
+    overflow: hidden;
+}
+
+/* --- 📱 SIDEBAR STYLES (NEW & REDMI 4A OPTIMIZED) --- */
+.sidebar {
+    width: 260px;
+    background: #111b21;
+    border-right: 1px solid #222d34;
+    display: flex;
+    display: -webkit-flex;
+    flex-direction: column;
+    -webkit-flex-direction: column;
+    padding: 10px;
+    z-index: 1001;
+    transition: transform 0.3s ease;
+    -webkit-transition: transform 0.3s ease;
+}
+
+/* Mobile Setup: Slide-out Offscreen */
+@media screen and (max-width: 768px) {
+    .sidebar {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        height: 100%;
+        transform: translateX(-100%);
+        -webkit-transform: translateX(-100%);
+        box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+        -webkit-transform: translateX(0);
+    }
+
+    #sidebar-overlay {
+        display: none;
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 1000;
+    }
+
+    #sidebar-overlay.active {
+        display: block;
+    }
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #222d34;
+    font-size: 14px;
+    font-weight: bold;
+    color: #8696a0;
+}
+
+.close-btn {
+    background: transparent;
+    border: none;
+    color: #8696a0;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.sidebar-new-btn {
+    margin: 10px 0;
+    background: #00a884;
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.conversation-list {
+    flex: 1;
+    -webkit-flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.conversation-item {
+    padding: 10px;
+    background: #202c33;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #e9edef;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.conversation-item:hover {
+    background: #2a3942;
 }
 
 /* --- 💬 CHAT AREA: स्क्रॉल फिक्स --- */
 #chat-container { 
     flex: 1;
     -webkit-flex: 1;
-    overflow-y: scroll; /* पुराने ब्राउज़र्स के लिए auto से बेहतर scroll है */
-    -webkit-overflow-scrolling: touch; /* आईफोन के स्मूथ स्क्रॉल के लिए */
+    overflow-y: scroll; 
+    -webkit-overflow-scrolling: touch; 
     background: #0b141a;
     padding: 10px;
-    /* बैकग्राउंड इमेज को हटा दिया या सिंपल रखा ताकि पुराने फोन हैंग न हों */
 }
 
 /* --- 🧪 MESSAGE BUBBLES --- */
 .msg { 
     width: 100%;
     margin-bottom: 12px;
-    display: block; /* पुराने ब्राउज़र्स के लिए block सेफ है */
+    display: block; 
     overflow: hidden;
 }
 
@@ -75,7 +183,7 @@ body {
     font-size: 14px;
     line-height: 1.4;
     word-wrap: break-word;
-    display: inline-block; /* पुराने ब्राउज़र्स के लिए सबसे सेफ */
+    display: inline-block; 
 }
 
 .user { text-align: right; }
@@ -98,13 +206,13 @@ pre {
     padding: 8px;
     overflow-x: auto;
     font-size: 12px;
-    white-space: pre-wrap; /* पुराने ब्राउज़र्स में कोड बाहर नहीं भागेगा */
+    white-space: pre-wrap; 
 }
 
-/* --- ⌨️ INPUT AREA: पत्थर जैसी मजबूती --- */
+/* --- ⌨️ INPUT AREA --- */
 .input-area { 
     background: #202c33; 
-    height: 70px; /* फिक्स हाइट */
+    height: 70px; 
     min-height: 70px;
     padding: 10px;
     display: flex;
@@ -123,7 +231,7 @@ input {
     padding: 0 15px;
     border-radius: 20px;
     color: white;
-    font-size: 16px; /* जूम रोकने के लिए 16px जरूरी है */
+    font-size: 16px; 
 }
 
 .round-btn { 
@@ -137,7 +245,6 @@ input {
     cursor: pointer;
 }
 
-/* 📱 छोटे फोन और पुराने ब्राउज़र के लिए फाइनल फिक्स */
 @media screen and (max-width: 320px) {
     .header b { font-size: 16px; }
     input { font-size: 14px; }
