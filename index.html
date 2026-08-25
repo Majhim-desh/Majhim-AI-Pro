@@ -19,7 +19,6 @@
     <!-- HEADER -->
     <div class="header">
         <div style="display: flex; align-items: center; gap: 10px;">
-            <!-- ☰ Hamburger Button Sidebar Toggle karne ke liye -->
             <button id="menu-btn" onclick="toggleSidebar()" style="background:transparent; border:none; color:white; font-size:20px; cursor:pointer;">☰</button>
             <b>Majhim AI Pro</b> 
             <span class="typing" id="typing-ui" style="display:none;">typing...</span>
@@ -39,24 +38,22 @@
         </div>
     </div>
 
-    <!-- MAIN WRAPPER (Sidebar + Chat Area) -->
+    <!-- MAIN WRAPPER -->
     <div class="main-wrapper">
-        <!-- 📱 Sidebar Component -->
+        <!-- Sidebar -->
         <div id="sidebar" class="sidebar">
             <div class="sidebar-header">
                 <span>Conversations</span>
                 <button onclick="toggleSidebar()" class="close-btn">✕</button>
             </div>
             <button onclick="startNewChat(); toggleSidebar();" class="sidebar-new-btn">➕ New Chat</button>
-            <div id="conversation-list" class="conversation-list">
-                <!-- JavaScript se list render hogi -->
-            </div>
+            <div id="conversation-list" class="conversation-list"></div>
         </div>
 
-        <!-- Mobile Background Blur Overlay -->
+        <!-- Overlay -->
         <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
-        <!-- 💬 Chat Container -->
+        <!-- Chat Container -->
         <div id="chat-container"></div>
     </div>
 
@@ -72,7 +69,6 @@
     <script src="voice-utils.js"></script>
 
     <script>
-        // Sidebar Toggle Functionality
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
@@ -85,12 +81,6 @@
         window.onload = () => {
             document.getElementById('user-input').focus();
         };
-
-        document.getElementById('user-input').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                sendMsg();
-            }
-        });
     </script>
 </body>
 </html>
