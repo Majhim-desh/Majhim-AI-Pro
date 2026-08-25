@@ -220,3 +220,23 @@ async function generateAIImage(prompt) {
 userInput.addEventListener("keypress", (e) => { 
     if (e.key === "Enter") sendMsg();
 });
+
+
+// ============================================
+// 🆕 4. New Chat Management / Navigation Logic
+// ============================================
+
+function startNewChat() {
+    currentConversationId = null;
+
+    if (chatBox) {
+        chatBox.innerHTML = '';
+    }
+
+    if (userInput) {
+        userInput.value = '';
+        userInput.focus();
+    }
+
+    console.log("🆕 New Chat Started");
+}
