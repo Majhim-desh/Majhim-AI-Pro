@@ -36,7 +36,7 @@ async function saveChatToFirestore(userMessage, aiResponse) {
     }
 }
 
-// 📥 Firestore: User Chat History Load
+// 📥 Firestore: User Conversations & Messages Load
 async function loadChatHistory() {
     const user = auth.currentUser;
 
@@ -44,29 +44,56 @@ async function loadChatHistory() {
     if (!user) return;
 
     try {
-        const snapshot = await db
+        const conversationsSnapshot = await db
             .collection("users")
             .doc(user.uid)
-            .collection("chats")
-            .orderBy("createdAt", "asc")
+            .collection("conversations")
             .get();
 
-        snapshot.forEach((doc) => {
-            const chat = doc.data();
+        let totalMessages = 0;
 
-            if (chat.userMessage) {
-                addBubble(chat.userMessage, 'user');
-            }
+        // सभी conversations पढ़ें
+        for (const conversationDoc of conversationsSnapshot.docs) {
 
-            if (chat.aiResponse) {
-                addBubble(chat.aiResponse, 'bot');
-            }
-        });
+            const conversationId = conversationDoc.id;
 
-        console.log("✅ Chat history loaded:", snapshot.size);
+            const messagesSnapshot = await db
+                .collection("users")
+                .doc(user.uid)
+                .collection("conversations")
+                .doc(conversationId)
+                .collection("messages")
+                .orderBy("createdAt", "asc")
+                .get();
+
+            // Messages स्क्रीन पर दिखाएँ
+            messagesSnapshot.forEach((messageDoc) => {
+                const chat = messageDoc.data();
+
+                if (chat.userMessage) {
+                    addBubble(chat.userMessage, 'user');
+                }
+
+                if (chat.aiResponse) {
+                    addBubble(chat.aiResponse, 'bot');
+                }
+
+                totalMessages++;
+            });
+        }
+
+        console.log(
+            "✅ Conversations loaded:",
+            conversationsSnapshot.size
+        );
+
+        console.log(
+            "✅ Total messages loaded:",
+            totalMessages
+        );
 
     } catch (error) {
-        console.error("❌ Firestore Load Error:", error);
+        console.error("❌ Firestore Conversation Load Error:", error);
     }
 }
 
