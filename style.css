@@ -25,7 +25,6 @@ body {
     -webkit-flex-direction: column;
 }
 
-/* --- 📱 HEADER --- */
 .header { 
     background: #202c33; 
     height: 60px; 
@@ -47,7 +46,6 @@ body {
     font-size: 18px; 
 }
 
-/* --- 🧱 MAIN WRAPPER (NEW) --- */
 .main-wrapper {
     flex: 1;
     -webkit-flex: 1;
@@ -57,7 +55,6 @@ body {
     overflow: hidden;
 }
 
-/* --- 📱 SIDEBAR STYLES (NEW & REDMI 4A OPTIMIZED) --- */
 .sidebar {
     width: 260px;
     background: #111b21;
@@ -72,7 +69,6 @@ body {
     -webkit-transition: transform 0.3s ease;
 }
 
-/* Mobile Setup: Slide-out Offscreen */
 @media screen and (max-width: 768px) {
     .sidebar {
         position: absolute;
@@ -158,7 +154,6 @@ body {
     background: #2a3942;
 }
 
-/* --- 💬 CHAT AREA: स्क्रॉल फिक्स --- */
 #chat-container { 
     flex: 1;
     -webkit-flex: 1;
@@ -168,7 +163,6 @@ body {
     padding: 10px;
 }
 
-/* --- 🧪 MESSAGE BUBBLES --- */
 .msg { 
     width: 100%;
     margin-bottom: 12px;
@@ -192,7 +186,6 @@ body {
 .bot { text-align: left; }
 .bot .bubble { background: #202c33; color: #e9edef; border-top-left-radius: 0; }
 
-/* --- 💻 CODE BLOCKS --- */
 .code-block { 
     background: #1a1a1a;
     border-radius: 5px;
@@ -209,7 +202,6 @@ pre {
     white-space: pre-wrap; 
 }
 
-/* --- ⌨️ INPUT AREA --- */
 .input-area { 
     background: #202c33; 
     height: 70px; 
