@@ -40,7 +40,6 @@ async function saveChatToFirestore(userMessage, aiResponse) {
 async function loadChatHistory(conversationId) {
     const user = auth.currentUser;
 
-    // Login नहीं है या Conversation ID नहीं मिली तो लोड नहीं होगा
     if (!user || !conversationId) return;
 
     try {
@@ -77,9 +76,10 @@ async function loadChatHistory(conversationId) {
     }
 }
 
-// 📋 Firestore: Conversation List Load
+// 📋 Firestore: Conversation List Load करना और UI में दिखाना
 async function loadConversationList() {
     const user = auth.currentUser;
+    const listContainer = document.getElementById('conversation-list');
 
     if (!user) return;
 
@@ -92,9 +92,25 @@ async function loadConversationList() {
 
         console.log("📋 Conversations found:", snapshot.size);
 
-        snapshot.forEach((doc) => {
-            console.log("🆔 Conversation ID:", doc.id);
-        });
+        // अगर HTML में conversation-list एलिमेंट मौजूद है तो उसमें लिस्ट रेंडर करें
+        if (listContainer) {
+            listContainer.innerHTML = '';
+
+            snapshot.forEach((doc) => {
+                const conversationId = doc.id;
+
+                const item = document.createElement('div');
+                item.className = 'conversation-item';
+                item.innerText = `Chat (${conversationId.substring(0, 8)}...)`;
+                
+                // लिस्ट आइटम पर क्लिक करने से वही चैट लोड होगी
+                item.onclick = () => {
+                    loadChatHistory(conversationId);
+                };
+
+                listContainer.appendChild(item);
+            });
+        }
 
     } catch (error) {
         console.error("❌ Conversation List Error:", error);
@@ -126,10 +142,9 @@ function addBubble(text, sender) {
     div.className = `msg ${sender}`;
     
     let htmlContent = text;
-    let rawTextForVoice = text; // वॉइस इंजन के लिए साफ टेक्स्ट
+    let rawTextForVoice = text;
 
     if (sender === 'bot') {        
-        // कोड ब्लॉक्स को सजाने के लिए
         htmlContent = text.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => {
             const cleanCode = code
                 .replace(/</g, "&lt;")
@@ -146,7 +161,6 @@ function addBubble(text, sender) {
             </div>`;
         });
         
-        // वॉइस इंजन के लिए: कोड हटाकर सिर्फ "कोड ब्लॉक" शब्द रखें
         rawTextForVoice = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
     }
 
@@ -156,7 +170,6 @@ function addBubble(text, sender) {
             <button class="action-btn" onclick="copyToClipboard(this)" style="cursor:pointer; background:#444; color:white; border:none; padding:5px 10px; border-radius:5px;">Copy Text</button>
         </div>` : '';
 
-    // 🔥 STRUCTURE: text-content में सिर्फ टेक्स्ट जाए और HTML अलग रहे
     div.innerHTML = `
         <div class="bubble">
             <div class="text-content">${htmlContent}</div>
@@ -197,9 +210,10 @@ async function callChatGPT(query) {
             const aiResponse = data.choices[0].message.content;
 
             addBubble(aiResponse, 'bot');
-
-            // 🔥 Login user की chat Firestore में save करें
             await saveChatToFirestore(query, aiResponse);
+            
+            // मैसेज सेव होने के बाद लिस्ट को रिफ्रेश करें ताकि नई चैट Sidebar में दिख जाए
+            loadConversationList();
         } else {
             console.error("Worker response:", data);
             addBubble("AI से जवाब नहीं मिल पाया, दोबारा कोशिश करें।", 'bot');
@@ -224,7 +238,6 @@ async function generateAIImage(prompt) {
 userInput.addEventListener("keypress", (e) => { 
     if (e.key === "Enter") sendMsg();
 });
-
 
 // =========================================
 // 🆕 4. New Chat Management / Navigation Logic
