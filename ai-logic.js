@@ -5,20 +5,19 @@ const userInput = document.getElementById('user-input');
 let currentConversationId = null;
 
 // 🔥 Firestore: Parent Document + Subcollection Message Save
-async function saveChatToFirestore(userMessage, aiResponse) {
+async function saveChatToFirestore(userMessage, aiResponse, convId) {
     const user = auth.currentUser;
-    if (!user) {
-        alert("⚠️ User Logged In नहीं है!");
-        return;
-    }
-    if (!currentConversationId) return;
+    // अगर मैसेज आते वक्त user बदल जाए या convId न मिले तो सुरक्षित रहें (Race Condition Fix)
+    const targetConvId = convId || currentConversationId;
+    
+    if (!user || !targetConvId) return;
 
     try {
         const conversationRef = db
             .collection("users")
             .doc(user.uid)
             .collection("conversations")
-            .doc(currentConversationId);
+            .doc(targetConvId);
 
         // 🟢 Parent Document Update (Sidebar में दिखने के लिए जरूरी)
         await conversationRef.set({
@@ -35,7 +34,6 @@ async function saveChatToFirestore(userMessage, aiResponse) {
         });
 
         console.log("✅ Message saved:", messageRef.id);
-        
 
     } catch (error) {
         console.error("❌ Firestore Save Error:", error);
@@ -119,17 +117,19 @@ async function sendMsg() {
     const text = userInput.value.trim();
     if (!text) return;
 
+    // हर मैसेज भेजने पर Conversation ID लॉक कर लें (Race Condition Preventer)
     if (!currentConversationId) {
         currentConversationId = crypto.randomUUID();
     }
+    const activeConvId = currentConversationId;
 
     addBubble(text, 'user');
     userInput.value = '';
 
     if (text.startsWith("/image ")) {
-        generateAIImage(text.replace("/image ", ""));
+        generateAIImage(text.replace("/image ", ""), activeConvId);
     } else {
-        callChatGPT(text);
+        callChatGPT(text, activeConvId);
     }
 }
 
@@ -174,7 +174,7 @@ function addBubble(text, sender) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-async function callChatGPT(query) {
+async function callChatGPT(query, activeConvId) {
     const typingUI = document.getElementById('typing-ui');
     if (typingUI) typingUI.style.display = 'inline';
 
@@ -188,12 +188,19 @@ async function callChatGPT(query) {
             }
         );
 
+        // 🟢 HTTP Status Code check (Fix 4)
+        if (!res.ok) {
+            throw new Error(`Server returned status: ${res.status}`);
+        }
+
         const data = await res.json();
 
         if (data.choices && data.choices[0]) {
             const aiResponse = data.choices[0].message.content;
             addBubble(aiResponse, 'bot');
-            await saveChatToFirestore(query, aiResponse);
+            
+            // 🟢 Pass activeConvId explicitly (Fix 2: Race Condition solved)
+            await saveChatToFirestore(query, aiResponse, activeConvId);
             loadConversationList();
         } else {
             addBubble("AI से जवाब नहीं मिल पाया, दोबारा कोशिश करें।", 'bot');
@@ -206,10 +213,16 @@ async function callChatGPT(query) {
     if (typingUI) typingUI.style.display = 'none';
 }
 
-async function generateAIImage(prompt) {
+async function generateAIImage(prompt, activeConvId) {
     addBubble("🎨 Drawing...", 'bot');
     const url = `https://pollinations.ai/p/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Math.random()}`;
-    addBubble(`<img src="${url}" style="width:100%; border-radius:10px; margin-top:10px;" alt="AI Generated">`, 'bot');
+    const imgHTML = `<img src="${url}" style="width:100%; border-radius:10px; margin-top:10px;" alt="AI Generated">`;
+    
+    addBubble(imgHTML, 'bot');
+
+    // 🟢 Save Image prompt & HTML result to Firestore (Fix 1: Image Save solved)
+    await saveChatToFirestore(`/image ${prompt}`, imgHTML, activeConvId);
+    loadConversationList();
 }
 
 userInput.addEventListener("keypress", (e) => { 
