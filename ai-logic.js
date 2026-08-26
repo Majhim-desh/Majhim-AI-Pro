@@ -35,7 +35,7 @@ async function saveChatToFirestore(userMessage, aiResponse) {
         });
 
         console.log("✅ Message saved:", messageRef.id);
-        alert("✅ Parent Document Firestore में सेव हो गया!");
+        
 
     } catch (error) {
         console.error("❌ Firestore Save Error:", error);
