@@ -248,3 +248,82 @@ function startNewChat() {
         userInput.focus();
     }
 }
+
+
+
+
+// 🔄 Order-Preserving Migration: Old /chats -> New /conversations/old-chats
+async function migrateOldChatsToNewFormat() {
+    const user = auth.currentUser;
+    if (!user) {
+        alert("⚠️ Migration के लिए पहले Login करें!");
+        return;
+    }
+
+    console.log("⏳ Data Migration शुरू हो रहा है...");
+
+    try {
+        // 🟢 1. पुराने /chats से डेटा 'createdAt' के ऑर्डर (Ascending) में पढ़ना
+        const oldChatsSnapshot = await db
+            .collection("users")
+            .doc(user.uid)
+            .collection("chats")
+            .orderBy("createdAt", "asc")
+            .get();
+
+        if (oldChatsSnapshot.empty) {
+            alert("⚠️ कोई पुराना /chats डेटा नहीं मिला!");
+            return;
+        }
+
+        const oldConversationsRef = db
+            .collection("users")
+            .doc(user.uid)
+            .collection("conversations")
+            .doc("old-chats"); // Fixed ID for grouping
+
+        let latestMessageText = "Old Chat History";
+        let latestTimestamp = null;
+
+        // 🟢 2. Sequential Processing (क्रम के अनुसार Write)
+        for (const doc of oldChatsSnapshot.docs) {
+            const data = doc.data();
+            const originalDocId = doc.id; // Preserve original document ID
+
+            const msgTime = data.createdAt || firebase.firestore.FieldValue.serverTimestamp();
+
+            await oldConversationsRef
+                .collection("messages")
+                .doc(originalDocId)
+                .set({
+                    userMessage: data.userMessage || "",
+                    aiResponse: data.aiResponse || "",
+                    createdAt: msgTime
+                }, { merge: true });
+
+            if (data.userMessage) {
+                latestMessageText = data.userMessage;
+            }
+            if (msgTime) {
+                latestTimestamp = msgTime;
+            }
+        }
+
+        // 🟢 3. Parent Document Update (सही Latest Timestamp के साथ)
+        await oldConversationsRef.set({
+            lastMessage: `📜 ${latestMessageText}`,
+            updatedAt: latestTimestamp || firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        // 🟢 4. Refresh Sidebar
+        if (typeof loadConversationList === "function") {
+            loadConversationList();
+        }
+
+        alert("🎉 माइग्रेशन सफल! Sidebar में '📜 Old History' दिखने लगा है!");
+
+    } catch (error) {
+        console.error("❌ Migration Error:", error);
+        alert("❌ Migration फ़ेल हुआ: " + error.message);
+    }
+}
