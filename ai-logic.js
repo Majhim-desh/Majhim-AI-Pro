@@ -197,12 +197,12 @@ async function callChatGPT(query, activeConvId) {
         if (data.choices && data.choices[0]) {
             const aiResponse = data.choices[0].message.content;
             
-            // 🟢 UI Race Condition Guard: अगर यूजर चैट बदल चुका है तो UI में बबल न जोड़ें
+            // 🟢 UI Race Condition Guard
             if (currentConversationId === activeConvId) {
                 addBubble(aiResponse, 'bot');
             }
             
-            // 🟢 Backend Sync: Firestore में हमेशा सही Chat ID पर ही save होगा
+            // 🟢 Backend Sync
             await saveChatToFirestore(query, aiResponse, activeConvId);
             loadConversationList();
         } else {
