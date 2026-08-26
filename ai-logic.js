@@ -7,7 +7,6 @@ let currentConversationId = null;
 // 🔥 Firestore: Parent Document + Subcollection Message Save
 async function saveChatToFirestore(userMessage, aiResponse, convId) {
     const user = auth.currentUser;
-    // अगर मैसेज आते वक्त user बदल जाए या convId न मिले तो सुरक्षित रहें (Race Condition Fix)
     const targetConvId = convId || currentConversationId;
     
     if (!user || !targetConvId) return;
@@ -19,7 +18,7 @@ async function saveChatToFirestore(userMessage, aiResponse, convId) {
             .collection("conversations")
             .doc(targetConvId);
 
-        // 🟢 Parent Document Update (Sidebar में दिखने के लिए जरूरी)
+        // 🟢 Parent Document Update
         await conversationRef.set({
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             lastMessage: userMessage
@@ -33,11 +32,10 @@ async function saveChatToFirestore(userMessage, aiResponse, convId) {
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        console.log("✅ Message saved:", messageRef.id);
+        console.log("✅ Message saved to Firestore:", messageRef.id);
 
     } catch (error) {
         console.error("❌ Firestore Save Error:", error);
-        alert("❌ Firestore Error: " + error.message);
     }
 }
 
@@ -58,6 +56,9 @@ async function loadChatHistory(conversationId) {
             .collection("messages")
             .orderBy("createdAt", "asc")
             .get();
+
+        // 🟢 UI Sync Guard: सुनिश्चित करें कि यूजर अभी भी इसी चैट पर है
+        if (currentConversationId !== conversationId) return;
 
         messagesSnapshot.forEach((messageDoc) => {
             const chat = messageDoc.data();
@@ -117,7 +118,6 @@ async function sendMsg() {
     const text = userInput.value.trim();
     if (!text) return;
 
-    // हर मैसेज भेजने पर Conversation ID लॉक कर लें (Race Condition Preventer)
     if (!currentConversationId) {
         currentConversationId = crypto.randomUUID();
     }
@@ -188,7 +188,6 @@ async function callChatGPT(query, activeConvId) {
             }
         );
 
-        // 🟢 HTTP Status Code check (Fix 4)
         if (!res.ok) {
             throw new Error(`Server returned status: ${res.status}`);
         }
@@ -197,30 +196,42 @@ async function callChatGPT(query, activeConvId) {
 
         if (data.choices && data.choices[0]) {
             const aiResponse = data.choices[0].message.content;
-            addBubble(aiResponse, 'bot');
             
-            // 🟢 Pass activeConvId explicitly (Fix 2: Race Condition solved)
+            // 🟢 UI Race Condition Guard: अगर यूजर चैट बदल चुका है तो UI में बबल न जोड़ें
+            if (currentConversationId === activeConvId) {
+                addBubble(aiResponse, 'bot');
+            }
+            
+            // 🟢 Backend Sync: Firestore में हमेशा सही Chat ID पर ही save होगा
             await saveChatToFirestore(query, aiResponse, activeConvId);
             loadConversationList();
         } else {
-            addBubble("AI से जवाब नहीं मिल पाया, दोबारा कोशिश करें।", 'bot');
+            if (currentConversationId === activeConvId) {
+                addBubble("AI से जवाब नहीं मिल पाया, दोबारा कोशिश करें।", 'bot');
+            }
         }
 
     } catch (e) {
-        addBubble("नेटवर्क में कुछ गड़बड़ है भाई, इंटरनेट चेक करो!", 'bot');
+        if (currentConversationId === activeConvId) {
+            addBubble("नेटवर्क में कुछ गड़बड़ है भाई, इंटरनेट चेक करो!", 'bot');
+        }
     }
 
     if (typingUI) typingUI.style.display = 'none';
 }
 
 async function generateAIImage(prompt, activeConvId) {
-    addBubble("🎨 Drawing...", 'bot');
+    if (currentConversationId === activeConvId) {
+        addBubble("🎨 Drawing...", 'bot');
+    }
+    
     const url = `https://pollinations.ai/p/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Math.random()}`;
     const imgHTML = `<img src="${url}" style="width:100%; border-radius:10px; margin-top:10px;" alt="AI Generated">`;
     
-    addBubble(imgHTML, 'bot');
+    if (currentConversationId === activeConvId) {
+        addBubble(imgHTML, 'bot');
+    }
 
-    // 🟢 Save Image prompt & HTML result to Firestore (Fix 1: Image Save solved)
     await saveChatToFirestore(`/image ${prompt}`, imgHTML, activeConvId);
     loadConversationList();
 }
