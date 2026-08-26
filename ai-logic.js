@@ -7,7 +7,11 @@ let currentConversationId = null;
 // 🔥 Firestore: Parent Document + Subcollection Message Save
 async function saveChatToFirestore(userMessage, aiResponse) {
     const user = auth.currentUser;
-    if (!user || !currentConversationId) return;
+    if (!user) {
+        alert("⚠️ User Logged In नहीं है!");
+        return;
+    }
+    if (!currentConversationId) return;
 
     try {
         const conversationRef = db
@@ -16,17 +20,14 @@ async function saveChatToFirestore(userMessage, aiResponse) {
             .collection("conversations")
             .doc(currentConversationId);
 
-        // Parent Document Update (Sidebar में दिखने के लिए जरूरी)
+        // 🟢 Parent Document Update (Sidebar में दिखने के लिए जरूरी)
         await conversationRef.set({
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             lastMessage: userMessage
         }, { merge: true });
 
-        // Subcollection Message Save
-        const messageRef = conversationRef
-            .collection("messages")
-            .doc();
-
+        // 🟢 Subcollection Message Save
+        const messageRef = conversationRef.collection("messages").doc();
         await messageRef.set({
             userMessage: userMessage,
             aiResponse: aiResponse,
@@ -34,9 +35,11 @@ async function saveChatToFirestore(userMessage, aiResponse) {
         });
 
         console.log("✅ Message saved:", messageRef.id);
+        alert("✅ Parent Document Firestore में सेव हो गया!");
 
     } catch (error) {
         console.error("❌ Firestore Save Error:", error);
+        alert("❌ Firestore Error: " + error.message);
     }
 }
 
