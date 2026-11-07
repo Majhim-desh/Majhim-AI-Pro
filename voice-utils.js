@@ -1,4 +1,30 @@
 // ==========================================
+// 🌐 LANGUAGE DETECTION & MAPPING
+// ==========================================
+let currentLangCode = 'hi'; // डिफ़ॉल्ट भाषा हिंदी
+
+function detectTextLanguage(text) {
+    try {
+        // यदि tinyld लोड है और detect फंक्शन मौजूद है
+        if (typeof tinyld !== 'undefined' && tinyld.detect) {
+            const lang = tinyld.detect(text);
+            if (lang) {
+                // मैपिंग ताकि Google TTS और SpeechSynthesis सही कोड ले सकें
+                const map = {
+                    'hi': 'hi', 'en': 'en', 'es': 'es', 'fr': 'fr', 
+                    'de': 'de', 'ja': 'ja', 'ko': 'ko', 'zh': 'zh-CN',
+                    'ar': 'ar', 'ru': 'ru', 'pt': 'pt', 'bn': 'bn'
+                };
+                return map[lang] || 'hi';
+            }
+        }
+    } catch (e) {
+        console.error("Lang detection error:", e);
+    }
+    return 'hi'; // अगर डिटेक्ट न हो तो हिंदी मान लो
+}
+
+// ==========================================
 // 🎤 VOICE TYPING (MIC BUTTON LOGIC)
 // ==========================================
 let recognition = null;
@@ -13,9 +39,7 @@ function startVoiceTyping() {
     }
 
     if (recognition) {
-        try {
-            recognition.stop();
-        } catch (e) {}
+        try { recognition.stop(); } catch (e) {}
         recognition = null;
     }
 
@@ -35,12 +59,8 @@ function startVoiceTyping() {
     };
 
     recognition.onerror = (e) => {
-        console.error("Speech error:", e.error);
         micBtn.innerText = "🎤";
         micBtn.style.background = "#00a884";
-        if (e.error === 'not-allowed') {
-            alert("माइक की परमिशन दें!");
-        }
     };
 
     recognition.onend = () => {
@@ -59,7 +79,7 @@ function startVoiceTyping() {
 }
 
 // ==========================================
-// 🎤 STABLE & ADVANCED VOICE ENGINE (HYBRID)
+// 🎤 STABLE & SMART VOICE ENGINE
 // ==========================================
 let queue = [];
 let index = 0;
@@ -89,9 +109,7 @@ function stopSpeech() {
     }
 
     if (typeof window !== 'undefined' && window.speechSynthesis) {
-        try {
-            window.speechSynthesis.cancel();
-        } catch (e) {}
+        try { window.speechSynthesis.cancel(); } catch (e) {}
     }
 
     if (activeBtn) {
@@ -111,7 +129,6 @@ function splitText(text) {
         let char = text[i];
         current += char;
         if ("।!?.".includes(char)) {
-            // दशमलव (जैसे 3.14) पर सेंटेंस न टूटे इसके लिए आगे स्पेस या अंत जांचें
             if (char === '.' && i + 1 < text.length && text[i + 1] !== ' ' && !isNaN(text[i - 1])) {
                 continue;
             }
@@ -149,7 +166,6 @@ function splitText(text) {
 function speak(text) {
     if (!isPlaying || isPaused) return;
 
-    // पुराना ऑडियो पूरी तरह साफ़ करें ताकि घोस्ट स्पीच न बने
     if (currentAudio) {
         try {
             currentAudio.onended = null;
@@ -162,13 +178,12 @@ function speak(text) {
     }
 
     if (typeof window !== 'undefined' && window.speechSynthesis) {
-        try {
-            window.speechSynthesis.cancel();
-        } catch (e) {}
+        try { window.speechSynthesis.cancel(); } catch (e) {}
     }
 
     isSpeaking = true;
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`;
+    // यहाँ डिटेक्ट की गई भाषा का उपयोग हो रहा है (tl=currentLangCode)
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${currentLangCode}&client=tw-ob`;
 
     try {
         currentAudio = new Audio(url);
@@ -208,7 +223,7 @@ function fallbackSpeak(text) {
         try {
             window.speechSynthesis.cancel();
             const utter = new SpeechSynthesisUtterance(text);
-            utter.lang = "hi-IN";
+            utter.lang = currentLangCode === 'en' ? 'en-US' : (currentLangCode + '-' + currentLangCode.toUpperCase());
 
             utter.onend = () => {
                 isSpeaking = false;
@@ -248,10 +263,22 @@ function processQueue() {
 
 function startSpeech(btn) {
     stopSpeech();
-    const textContent = btn.closest('.bubble')?.querySelector('.text-content');
+    const bubble = btn.closest('.bubble');
+    if (!bubble) return;
+
+    // कोड ब्लॉक को हटा दें ताकि कोडिंग को आवाज़ में न पढ़े
+    const cloneBubble = bubble.cloneNode(true);
+    const codeBlocks = cloneBubble.querySelectorAll('pre, code, .code-block');
+    codeBlocks.forEach(block => block.remove());
+
+    const textContent = cloneBubble.querySelector('.text-content');
     if (!textContent) return;
 
     const text = textContent.innerText;
+    
+    // 🌍 यहीं पर शुरू में ही पूरे टेक्स्ट की भाषा पहचान लो!
+    currentLangCode = detectTextLanguage(text);
+
     queue = splitText(text);
     index = 0;
     isPlaying = true;
@@ -266,15 +293,11 @@ function pauseSpeech() {
     isPaused = true;
     
     if (currentAudio) {
-        try {
-            currentAudio.pause();
-        } catch (e) {}
+        try { currentAudio.pause(); } catch (e) {}
     }
 
     if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
-        try {
-            window.speechSynthesis.pause();
-        } catch (e) {}
+        try { window.speechSynthesis.pause(); } catch (e) {}
     }
 
     if (activeBtn) activeBtn.innerText = "Resume ▶️";
@@ -285,7 +308,6 @@ function resumeSpeech() {
     isPaused = false;
     if (activeBtn) activeBtn.innerText = "Pause ⏸️";
 
-    // यदि नेटिव स्पीच सिंथेसिस पॉज़ है तो उसे सीधे रीज़म करें
     if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.paused) {
         try {
             window.speechSynthesis.resume();
@@ -293,7 +315,6 @@ function resumeSpeech() {
         } catch (e) {}
     }
 
-    // यदि ऑडियो पॉज़ है तो उसे प्ले करें, अन्यथा मौजूदा इंडेक्स से री-जेनरेट करें
     if (currentAudio && currentAudio.paused) {
         try {
             const playPromise = currentAudio.play();
