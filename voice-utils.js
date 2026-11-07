@@ -32,7 +32,7 @@ function startVoiceTyping() {
 }
 
 // ==========================================
-// 🎤 HYBRID STABLE VOICE ENGINE
+// 🎤 STABLE VOICE ENGINE (FIXED OVERLAP & RESUME)
 // ==========================================
 let queue = [];
 let index = 0;
@@ -50,6 +50,7 @@ function stopSpeech() {
     if (currentAudio) {
         try {
             currentAudio.pause();
+            currentAudio.currentTime = 0;
             currentAudio.src = "";
         } catch (e) {}
         currentAudio = null;
@@ -110,23 +111,32 @@ function splitText(text) {
 function speak(text) {
     if (!isPlaying || isPaused) return;
 
-    isSpeaking = true;
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`;
-
+    // नया ऑडियो प्ले करने से पहले पिछले को पूरी तरह साफ़ करें
     if (currentAudio) {
         try {
             currentAudio.pause();
+            currentAudio.currentTime = 0;
             currentAudio.src = "";
         } catch (e) {}
+        currentAudio = null;
     }
+
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+
+    isSpeaking = true;
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`;
 
     try {
         currentAudio = new Audio(url);
 
         currentAudio.onended = () => {
             isSpeaking = false;
-            index++;
-            processQueue();
+            if (isPlaying && !isPaused) {
+                index++;
+                processQueue();
+            }
         };
 
         currentAudio.onerror = () => {
@@ -153,14 +163,18 @@ function fallbackSpeak(text) {
 
             utter.onend = () => {
                 isSpeaking = false;
-                index++;
-                processQueue();
+                if (isPlaying && !isPaused) {
+                    index++;
+                    processQueue();
+                }
             };
             
             utter.onerror = () => {
                 isSpeaking = false;
-                index++;
-                processQueue();
+                if (isPlaying && !isPaused) {
+                    index++;
+                    processQueue();
+                }
             };
 
             window.speechSynthesis.speak(utter);
@@ -222,18 +236,14 @@ function resumeSpeech() {
     isPaused = false;
     if (activeBtn) activeBtn.innerText = "Pause ⏸️";
 
-    // हाइब्रिड अप्रोच: अगर ऑडियो ऑब्जेक्ट मौजूद है और पॉज्ड है, तो उसे चलाएं
+    // यदि ऑडियो पहले से मौजूद है और पॉज है तो वहीं से चलाएं, अन्यथा मौजूदा इंडेक्स से री-जेनरेट करें
     if (currentAudio && currentAudio.paused) {
         try {
             const playPromise = currentAudio.play();
             if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    return; // सफलतापूर्वक रिज्यूम हो गया
-                }).catch(() => {
+                playPromise.catch(() => {
                     regenAndPlayCurrentIndex();
                 });
-            } else {
-                return;
             }
         } catch (e) {
             regenAndPlayCurrentIndex();
@@ -243,7 +253,6 @@ function resumeSpeech() {
     }
 }
 
-// फॉलबैक या नए सिरे से उसी इंडेक्स को प्ले करने के लिए
 function regenAndPlayCurrentIndex() {
     if (index < queue.length) {
         speak(queue[index]);
