@@ -1,6 +1,8 @@
 // ==========================================
 // 🎤 VOICE TYPING (MIC BUTTON LOGIC)
 // ==========================================
+let recognition = null;
+
 function startVoiceTyping() {
     const inputField = document.getElementById('user-input');
     const micBtn = document.getElementById('mic-btn');
@@ -10,7 +12,14 @@ function startVoiceTyping() {
         return;
     }
 
-    const recognition = new webkitSpeechRecognition();
+    if (recognition) {
+        try {
+            recognition.stop();
+        } catch (e) {}
+        recognition = null;
+    }
+
+    recognition = new webkitSpeechRecognition();
     recognition.lang = 'hi-IN';
     recognition.interimResults = false;
 
@@ -20,19 +29,37 @@ function startVoiceTyping() {
     };
 
     recognition.onresult = (event) => {
-        inputField.value = event.results[0][0].transcript;
+        if (inputField) {
+            inputField.value = event.results[0][0].transcript;
+        }
+    };
+
+    recognition.onerror = (e) => {
+        console.error("Speech error:", e.error);
+        micBtn.innerText = "🎤";
+        micBtn.style.background = "#00a884";
+        if (e.error === 'not-allowed') {
+            alert("माइक की परमिशन दें!");
+        }
     };
 
     recognition.onend = () => {
         micBtn.innerText = "🎤";
         micBtn.style.background = "#00a884";
+        recognition = null;
     };
 
-    recognition.start();
+    try {
+        recognition.start();
+    } catch (e) {
+        micBtn.innerText = "🎤";
+        micBtn.style.background = "#00a884";
+        recognition = null;
+    }
 }
 
 // ==========================================
-// 🎤 STABLE VOICE ENGINE (FIXED OVERLAP & RESUME)
+// 🎤 STABLE & ADVANCED VOICE ENGINE (HYBRID)
 // ==========================================
 let queue = [];
 let index = 0;
@@ -49,9 +76,14 @@ function stopSpeech() {
 
     if (currentAudio) {
         try {
+            currentAudio.onended = null;
+            currentAudio.onerror = null;
             currentAudio.pause();
             currentAudio.currentTime = 0;
             currentAudio.src = "";
+            if (typeof currentAudio.load === 'function') {
+                currentAudio.load();
+            }
         } catch (e) {}
         currentAudio = null;
     }
@@ -69,14 +101,20 @@ function stopSpeech() {
 }
 
 function splitText(text) {
+    if (!text) return [];
     text = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
 
     let sentences = [];
     let current = "";
 
-    for (let char of text) {
+    for (let i = 0; i < text.length; i++) {
+        let char = text[i];
         current += char;
         if ("।!?.".includes(char)) {
+            // दशमलव (जैसे 3.14) पर सेंटेंस न टूटे इसके लिए आगे स्पेस या अंत जांचें
+            if (char === '.' && i + 1 < text.length && text[i + 1] !== ' ' && !isNaN(text[i - 1])) {
+                continue;
+            }
             sentences.push(current.trim());
             current = "";
         }
@@ -111,9 +149,11 @@ function splitText(text) {
 function speak(text) {
     if (!isPlaying || isPaused) return;
 
-    // नया ऑडियो प्ले करने से पहले पिछले को पूरी तरह साफ़ करें
+    // पुराना ऑडियो पूरी तरह साफ़ करें ताकि घोस्ट स्पीच न बने
     if (currentAudio) {
         try {
+            currentAudio.onended = null;
+            currentAudio.onerror = null;
             currentAudio.pause();
             currentAudio.currentTime = 0;
             currentAudio.src = "";
@@ -122,7 +162,9 @@ function speak(text) {
     }
 
     if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
+        try {
+            window.speechSynthesis.cancel();
+        } catch (e) {}
     }
 
     isSpeaking = true;
@@ -130,6 +172,13 @@ function speak(text) {
 
     try {
         currentAudio = new Audio(url);
+        let fallbackStarted = false;
+
+        const triggerFallback = () => {
+            if (fallbackStarted) return;
+            fallbackStarted = true;
+            fallbackSpeak(text);
+        };
 
         currentAudio.onended = () => {
             isSpeaking = false;
@@ -140,13 +189,13 @@ function speak(text) {
         };
 
         currentAudio.onerror = () => {
-            fallbackSpeak(text);
+            triggerFallback();
         };
 
         const playPromise = currentAudio.play();
         if (playPromise !== undefined) {
             playPromise.catch(() => {
-                fallbackSpeak(text);
+                triggerFallback();
             });
         }
     } catch (e) {
@@ -236,7 +285,15 @@ function resumeSpeech() {
     isPaused = false;
     if (activeBtn) activeBtn.innerText = "Pause ⏸️";
 
-    // यदि ऑडियो पहले से मौजूद है और पॉज है तो वहीं से चलाएं, अन्यथा मौजूदा इंडेक्स से री-जेनरेट करें
+    // यदि नेटिव स्पीच सिंथेसिस पॉज़ है तो उसे सीधे रीज़म करें
+    if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.paused) {
+        try {
+            window.speechSynthesis.resume();
+            return;
+        } catch (e) {}
+    }
+
+    // यदि ऑडियो पॉज़ है तो उसे प्ले करें, अन्यथा मौजूदा इंडेक्स से री-जेनरेट करें
     if (currentAudio && currentAudio.paused) {
         try {
             const playPromise = currentAudio.play();
@@ -279,23 +336,33 @@ function speakFromBubble(btn) {
 }
 
 // ==========================================
-// 📋 COPY FUNCTIONS (TEXT & CODE)
+// 📋 ROBUST COPY FUNCTIONS (TEXT & CODE)
 // ==========================================
+function showCopiedFeedback(btn) {
+    if (!btn.dataset.originalText) {
+        btn.dataset.originalText = btn.innerText;
+    }
+    btn.innerText = "Copied ✅";
+    clearTimeout(btn._copyTimer);
+    btn._copyTimer = setTimeout(() => {
+        btn.innerText = btn.dataset.originalText;
+        delete btn.dataset.originalText;
+    }, 2000);
+}
+
 function copyToClipboard(btn) {
     const textContent = btn.closest('.bubble')?.querySelector('.text-content');
     if (!textContent) return;
     const text = textContent.innerText;
     
-    const success = () => {
-        const old = btn.innerText;
-        btn.innerText = "Copied ✅";
-        setTimeout(() => btn.innerText = old, 2000);
-    };
-
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(text).then(success).catch(() => fallbackCopy(text, success));
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showCopiedFeedback(btn);
+        }).catch(() => {
+            fallbackCopy(text, btn);
+        });
     } else {
-        fallbackCopy(text, success);
+        fallbackCopy(text, btn);
     }
 }
 
@@ -304,20 +371,18 @@ function copyCode(btn) {
     if (!codeEl) return;
     const code = codeEl.innerText;
     
-    const success = () => {
-        const old = btn.innerText;
-        btn.innerText = "Copied ✅";
-        setTimeout(() => btn.innerText = old, 2000);
-    };
-
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(code).then(success).catch(() => fallbackCopy(code, success));
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(() => {
+            showCopiedFeedback(btn);
+        }).catch(() => {
+            fallbackCopy(code, btn);
+        });
     } else {
-        fallbackCopy(code, success);
+        fallbackCopy(code, btn);
     }
 }
 
-function fallbackCopy(text, cb) {
+function fallbackCopy(text, btn) {
     try {
         const t = document.createElement("textarea");
         t.value = text;
@@ -325,6 +390,8 @@ function fallbackCopy(text, cb) {
         t.select();
         document.execCommand("copy");
         document.body.removeChild(t);
-    } catch (e) {}
-    cb();
+        showCopiedFeedback(btn);
+    } catch (e) {
+        alert("कॉपी करने में विफल रहा!");
+    }
 }
