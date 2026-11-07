@@ -179,29 +179,66 @@ function startSpeech(btn) {
 
 function pauseSpeech() {
     isPaused = true;
-    if (currentAudio) currentAudio.pause();
-    window.speechSynthesis.pause();
+    try {
+        if (typeof currentAudio !== 'undefined' && currentAudio && !currentAudio.paused) {
+            currentAudio.pause();
+        }
+    } catch (e) {
+        // पुराने ब्राउज़र्स के लिए सेफ इग्नोर
+    }
+
+    try {
+        if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
+            window.speechSynthesis.pause();
+        }
+    } catch (e) {}
+
     if (activeBtn) activeBtn.innerText = "Resume ▶️";
 }
 
 function resumeSpeech() {
     isPaused = false;
     if (activeBtn) activeBtn.innerText = "Pause ⏸️";
-    if (currentAudio) {
-        currentAudio.play().catch(() => processQueue());
-    } 
-    window.speechSynthesis.resume();
-}
 
-function toggleSpeech(btn) {
-    if (!isPlaying) {
-        startSpeech(btn);
-    } else if (isPaused) {
-        resumeSpeech();
-    } else {
-        pauseSpeech();
+    let played = false;
+
+    // पहले HTML ऑडियो चेक करें (पुराने फोन्स के लिए भी सुरक्षित)
+    try {
+        if (typeof currentAudio !== 'undefined' && currentAudio) {
+            const playPromise = currentAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    played = true;
+                }).catch(() => {
+                    // अगर ऑडियो प्ले होने में दिक्कत आई, तो queue प्रोसेस पर जाएं
+                    processQueue();
+                });
+            } else {
+                played = true;
+            }
+        }
+    } catch (e) {
+        // यदि ऑडियो में एरर आए तो आगे बढ़ें
+    }
+
+    // अगर ऑडियो नहीं चल रहा, तो स्पीच सिंथेसिस रिज्यूम करें
+    if (!played) {
+        try {
+            if (typeof window !== 'undefined' && window.speechSynthesis) {
+                if (window.speechSynthesis.paused || window.speechSynthesis.speaking) {
+                    window.speechSynthesis.resume();
+                } else {
+                    processQueue();
+                }
+            } else {
+                processQueue();
+            }
+        } catch (e) {
+            processQueue();
+        }
     }
 }
+
 
 function speakFromBubble(btn) {
     if (activeBtn && activeBtn !== btn) stopSpeech();
