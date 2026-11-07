@@ -1,3 +1,21 @@
+// ============ 🛡️ XSS PROTECTION ============
+function escapeHTML(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// ============ 🆔 UUID FALLBACK (पुराने browsers के लिए) ============
+function generateId() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return 'conv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+}
+
 // 2. Chat & UI Logic
 const chatBox = document.getElementById('chat-container');
 const userInput = document.getElementById('user-input');
@@ -8,7 +26,7 @@ let currentConversationId = null;
 async function saveChatToFirestore(userMessage, aiResponse, convId) {
     const user = auth.currentUser;
     const targetConvId = convId || currentConversationId;
-    
+
     if (!user || !targetConvId) return;
 
     try {
@@ -18,13 +36,11 @@ async function saveChatToFirestore(userMessage, aiResponse, convId) {
             .collection("conversations")
             .doc(targetConvId);
 
-        // 🟢 Parent Document Update
         await conversationRef.set({
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             lastMessage: userMessage
         }, { merge: true });
 
-        // 🟢 Subcollection Message Save
         const messageRef = conversationRef.collection("messages").doc();
         await messageRef.set({
             userMessage: userMessage,
@@ -57,7 +73,6 @@ async function loadChatHistory(conversationId) {
             .orderBy("createdAt", "asc")
             .get();
 
-        // 🟢 UI Sync Guard: सुनिश्चित करें कि यूजर अभी भी इसी चैट पर है
         if (currentConversationId !== conversationId) return;
 
         messagesSnapshot.forEach((messageDoc) => {
@@ -115,11 +130,13 @@ async function loadConversationList() {
 }
 
 async function sendMsg() {
+    if (!userInput) return;
+
     const text = userInput.value.trim();
     if (!text) return;
 
     if (!currentConversationId) {
-        currentConversationId = crypto.randomUUID();
+        currentConversationId = generateId();
     }
     const activeConvId = currentConversationId;
 
@@ -136,19 +153,20 @@ async function sendMsg() {
 function addBubble(text, sender) {
     const div = document.createElement('div');
     div.className = `msg ${sender}`;
-    
-    let htmlContent = text;
 
-    if (sender === 'bot') {        
-        htmlContent = text.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => {
-            const cleanCode = code.replace(/</g, "&lt;").replace(/>/g, "&gt;").trim();
+    // 🛡️ सबसे पहले escape करो (XSS से बचाव)
+    let htmlContent = escapeHTML(text);
+
+    if (sender === 'bot') {
+        // Escaped text में code blocks को HTML में बदलो
+        htmlContent = htmlContent.replace(/```(\w+)?([\s\S]*?)```/g, (m, lang, code) => {
             return `
             <div class="code-block">
                 <div class="code-header">
                     <span>${lang || 'code'}</span>
                     <button onclick="copyCode(this)">Copy 💻</button>
                 </div>
-                <pre><code class="language-${lang || 'javascript'}">${cleanCode}</code></pre>
+                <pre><code class="language-${lang || 'javascript'}">${code.trim()}</code></pre>
             </div>`;
         });
     }
@@ -165,13 +183,13 @@ function addBubble(text, sender) {
             ${buttons}
         </div>`;
 
-    chatBox.appendChild(div);
+    if (chatBox) chatBox.appendChild(div);
 
-    if (sender === 'bot') {
-        setTimeout(() => Prism.highlightAllUnder(div), 100);
+    if (sender === 'bot' && typeof Prism !== 'undefined') {
+        setTimeout(() => Prism.highlightAllUnder(div), 50);
     }
 
-    chatBox.scrollTop = chatBox.scrollHeight;
+    if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
 }
 
 async function callChatGPT(query, activeConvId) {
@@ -196,13 +214,11 @@ async function callChatGPT(query, activeConvId) {
 
         if (data.choices && data.choices[0]) {
             const aiResponse = data.choices[0].message.content;
-            
-            // 🟢 UI Race Condition Guard
+
             if (currentConversationId === activeConvId) {
                 addBubble(aiResponse, 'bot');
             }
-            
-            // 🟢 Backend Sync
+
             await saveChatToFirestore(query, aiResponse, activeConvId);
             loadConversationList();
         } else {
@@ -224,10 +240,10 @@ async function generateAIImage(prompt, activeConvId) {
     if (currentConversationId === activeConvId) {
         addBubble("🎨 Drawing...", 'bot');
     }
-    
+
     const url = `https://pollinations.ai/p/${encodeURIComponent(prompt)}?width=512&height=512&seed=${Math.random()}`;
     const imgHTML = `<img src="${url}" style="width:100%; border-radius:10px; margin-top:10px;" alt="AI Generated">`;
-    
+
     if (currentConversationId === activeConvId) {
         addBubble(imgHTML, 'bot');
     }
@@ -236,9 +252,11 @@ async function generateAIImage(prompt, activeConvId) {
     loadConversationList();
 }
 
-userInput.addEventListener("keypress", (e) => { 
-    if (e.key === "Enter") sendMsg();
-});
+if (userInput) {
+    userInput.addEventListener("keypress", (e) => { 
+        if (e.key === "Enter") sendMsg();
+    });
+}
 
 function startNewChat() {
     currentConversationId = null;
