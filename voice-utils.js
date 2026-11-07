@@ -4,7 +4,7 @@
 function startVoiceTyping() {
     const inputField = document.getElementById('user-input');
     const micBtn = document.getElementById('mic-btn');
-    
+
     if (!('webkitSpeechRecognition' in window)) {
         alert("Sorry, your browser does not support speech recognition.");
         return;
@@ -47,14 +47,16 @@ function stopSpeech() {
     isPlaying = false;
     isPaused = false;
     isSpeaking = false;
-    
+
     if (currentAudio) {
         currentAudio.pause();
         currentAudio.src = "";
         currentAudio = null;
     }
 
-    window.speechSynthesis.cancel();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
 
     if (activeBtn) {
         activeBtn.innerText = "Listen 🔊";
@@ -64,13 +66,11 @@ function stopSpeech() {
 
 // ✂️ SAFE SPLIT: Google TTS की 200-अक्षर सीमा और "Last Line" फिक्स
 function splitText(text) {
-    // 1. कोड ब्लॉक को हटाकर सिर्फ शब्द रखें ताकि TTS अटके नहीं
     text = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
 
     let sentences = [];
     let current = "";
 
-    // 2. विराम चिन्हों पर तोड़ें
     for (let char of text) {
         current += char;
         if ("।!?.".includes(char)) {
@@ -78,19 +78,16 @@ function splitText(text) {
             current = "";
         }
     }
-    
-    // 🔥 CRITICAL FIX: अगर आखिरी लाइन में फुलस्टॉप नहीं है, तो उसे भी जोड़ें
+
     if (current.trim()) {
         sentences.push(current.trim());
     }
 
-    // 3. पक्का करें कि कोई भी लाइन 180 अक्षर से बड़ी न हो
     let finalQueue = [];
     sentences.forEach(s => {
         if (s.length < 180) {
             finalQueue.push(s);
         } else {
-            // बहुत लंबी लाइनों को शब्दों (Space) के आधार पर काटें
             let words = s.split(' ');
             let chunk = '';
             words.forEach(w => {
@@ -129,7 +126,6 @@ function speak(text) {
     };
 
     currentAudio.onerror = () => {
-        // अगर ऑनलाइन TTS फेल हो, तो ब्राउजर का अपना वॉइस (Fallback) इस्तेमाल करें
         fallbackSpeak(text);
     };
 
@@ -138,16 +134,22 @@ function speak(text) {
 
 // 🔊 FALLBACK: ऑफलाइन/फेल होने पर ब्राउजर वॉइस का सहारा
 function fallbackSpeak(text) {
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "hi-IN";
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = "hi-IN";
 
-    utter.onend = () => {
+        utter.onend = () => {
+            isSpeaking = false;
+            index++;
+            processQueue();
+        };
+        window.speechSynthesis.speak(utter);
+    } else {
         isSpeaking = false;
         index++;
         processQueue();
-    };
-    window.speechSynthesis.speak(utter);
+    }
 }
 
 // 🔁 QUEUE PROCESSOR: एक के बाद एक लाइन चलाने वाला दिमाग
@@ -164,7 +166,7 @@ function processQueue() {
 // ▶️ CONTROL FUNCTIONS
 function startSpeech(btn) {
     stopSpeech();
-    const textContent = btn.closest('.bubble').querySelector('.text-content');
+    const textContent = btn.closest('.bubble')?.querySelector('.text-content');
     if (!textContent) return;
 
     const text = textContent.innerText;
@@ -180,12 +182,10 @@ function startSpeech(btn) {
 function pauseSpeech() {
     isPaused = true;
     try {
-        if (typeof currentAudio !== 'undefined' && currentAudio && !currentAudio.paused) {
+        if (currentAudio && !currentAudio.paused) {
             currentAudio.pause();
         }
-    } catch (e) {
-        // पुराने ब्राउज़र्स के लिए सेफ इग्नोर
-    }
+    } catch (e) {}
 
     try {
         if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
@@ -202,26 +202,21 @@ function resumeSpeech() {
 
     let played = false;
 
-    // पहले HTML ऑडियो चेक करें (पुराने फोन्स के लिए भी सुरक्षित)
     try {
-        if (typeof currentAudio !== 'undefined' && currentAudio) {
+        if (currentAudio) {
             const playPromise = currentAudio.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
                     played = true;
                 }).catch(() => {
-                    // अगर ऑडियो प्ले होने में दिक्कत आई, तो queue प्रोसेस पर जाएं
                     processQueue();
                 });
             } else {
                 played = true;
             }
         }
-    } catch (e) {
-        // यदि ऑडियो में एरर आए तो आगे बढ़ें
-    }
+    } catch (e) {}
 
-    // अगर ऑडियो नहीं चल रहा, तो स्पीच सिंथेसिस रिज्यूम करें
     if (!played) {
         try {
             if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -239,17 +234,38 @@ function resumeSpeech() {
     }
 }
 
+// 🔘 TOGGLE FUNCTION (यह मिसिंग था जिसकी वजह से बटन काम नहीं कर रहा था)
+function toggleSpeech(btn) {
+    if (isPlaying) {
+        startSpeech(btn);
+    } else if (isPaused) {
+        resumeSpeech();
+    } else {
+        pauseSpeech();
+    }
+}
 
 function speakFromBubble(btn) {
-    if (activeBtn && activeBtn !== btn) stopSpeech();
-    toggleSpeech(btn);
+    if (activeBtn && activeBtn !== btn) {
+        stopSpeech();
+        startSpeech(btn);
+    } else if (!isPlaying && !isPaused) {
+        startSpeech(btn);
+    } else if (isPaused) {
+        resumeSpeech();
+    } else {
+        pauseSpeech();
+    }
 }
 
 // ==========================================
 // 📋 COPY FUNCTIONS (TEXT & CODE)
 // ==========================================
 function copyToClipboard(btn) {
-    const text = btn.closest('.bubble').querySelector('.text-content').innerText;
+    const textContent = btn.closest('.bubble')?.querySelector('.text-content');
+    if (!textContent) return;
+    const text = textContent.innerText;
+    
     const success = () => {
         const old = btn.innerText;
         btn.innerText = "Copied ✅";
@@ -267,6 +283,7 @@ function copyCode(btn) {
     const codeEl = btn.closest('.code-block')?.querySelector("code");
     if (!codeEl) return;
     const code = codeEl.innerText;
+    
     const success = () => {
         const old = btn.innerText;
         btn.innerText = "Copied ✅";
