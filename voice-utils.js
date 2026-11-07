@@ -47,9 +47,7 @@ function stopSpeech() {
     isPlaying = false;
     isPaused = false;
     isSpeaking = false;
-    queue = [];
-    index = 0;
-
+    
     if (currentAudio) {
         currentAudio.pause();
         currentAudio.src = "";
@@ -191,9 +189,7 @@ function resumeSpeech() {
     if (activeBtn) activeBtn.innerText = "Pause ⏸️";
     if (currentAudio) {
         currentAudio.play().catch(() => processQueue());
-    } else {
-        processQueue();
-    }
+    } 
     window.speechSynthesis.resume();
 }
 
