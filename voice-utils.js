@@ -1,18 +1,16 @@
 // ==========================================
 // 🌐 LANGUAGE DETECTION & MAPPING
 // ==========================================
-let currentLangCode = 'hi'; // डिफ़ॉल्ट भाषा हिंदी
+let currentLangCode = 'hi';
 
 function detectTextLanguage(text) {
     try {
-        // यदि tinyld लोड है और detect फंक्शन मौजूद है
         if (typeof tinyld !== 'undefined' && tinyld.detect) {
             const lang = tinyld.detect(text);
             if (lang) {
-                // मैपिंग ताकि Google TTS और SpeechSynthesis सही कोड ले सकें
                 const map = {
                     'hi': 'hi', 'en': 'en', 'es': 'es', 'fr': 'fr', 
-                    'de': 'de', 'ja': 'ja', 'ko': 'ko', 'zh': 'zh-CN',
+                    'de': 'de', 'ja': 'ja', 'ko': 'ko', 'zh-CN': 'zh-CN',
                     'ar': 'ar', 'ru': 'ru', 'pt': 'pt', 'bn': 'bn'
                 };
                 return map[lang] || 'hi';
@@ -21,7 +19,57 @@ function detectTextLanguage(text) {
     } catch (e) {
         console.error("Lang detection error:", e);
     }
-    return 'hi'; // अगर डिटेक्ट न हो तो हिंदी मान लो
+    return 'hi';
+}
+
+// ==========================================
+// 🌐 LOCALE TAG MAPPER (fallback के लिए सही tag)
+// ==========================================
+function toLocaleTag(langCode) {
+    const map = {
+        'hi': 'hi-IN',
+        'en': 'en-US',
+        'es': 'es-ES',
+        'fr': 'fr-FR',
+        'de': 'de-DE',
+        'ja': 'ja-JP',
+        'ko': 'ko-KR',
+        'zh-CN': 'zh-CN',
+        'ar': 'ar-SA',
+        'ru': 'ru-RU',
+        'pt': 'pt-PT',
+        'bn': 'bn-BD'
+    };
+    return map[langCode] || 'hi-IN';
+}
+
+// ==========================================
+// 🎙️ VOICE CACHE (device पर सही voice)
+// ==========================================
+let cachedVoices = [];
+
+function loadVoices() {
+    if (!window.speechSynthesis) return;
+    cachedVoices = window.speechSynthesis.getVoices() || [];
+}
+
+if (typeof window !== 'undefined' && window.speechSynthesis) {
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+function getVoiceForLang(langTag) {
+    if (!window.speechSynthesis) return null;
+    if (cachedVoices.length === 0) loadVoices();
+
+    const baseLang = langTag.split('-')[0];
+    let voice = cachedVoices.find(v => v.lang === langTag);
+    if (voice) return voice;
+
+    voice = cachedVoices.find(v => v.lang && v.lang.toLowerCase().startsWith(baseLang.toLowerCase()));
+    if (voice) return voice;
+
+    return null;
 }
 
 // ==========================================
@@ -48,8 +96,10 @@ function startVoiceTyping() {
     recognition.interimResults = false;
 
     recognition.onstart = () => {
-        micBtn.innerText = "🛑";
-        micBtn.style.background = "#ff4444";
+        if (micBtn) {
+            micBtn.innerText = "🛑";
+            micBtn.style.background = "#ff4444";
+        }
     };
 
     recognition.onresult = (event) => {
@@ -59,23 +109,63 @@ function startVoiceTyping() {
     };
 
     recognition.onerror = (e) => {
-        micBtn.innerText = "🎤";
-        micBtn.style.background = "#00a884";
+        if (micBtn) {
+            micBtn.innerText = "🎤";
+            micBtn.style.background = "#00a884";
+        }
+        recognition = null;
+        if (e.error === 'not-allowed') {
+            alert("माइक की permission दो भाई! Browser settings में जाकर allow करो।");
+        } else if (e.error === 'no-speech' || e.error === 'aborted') {
+            // चुप्पी या बंद — कोई alert नहीं
+        } else {
+            alert("Voice नहीं पकड़ पाया, दोबारा try करो");
+        }
     };
 
     recognition.onend = () => {
-        micBtn.innerText = "🎤";
-        micBtn.style.background = "#00a884";
+        if (micBtn) {
+            micBtn.innerText = "🎤";
+            micBtn.style.background = "#00a884";
+        }
         recognition = null;
     };
 
     try {
         recognition.start();
     } catch (e) {
-        micBtn.innerText = "🎤";
-        micBtn.style.background = "#00a884";
+        if (micBtn) {
+            micBtn.innerText = "🎤";
+            micBtn.style.background = "#00a884";
+        }
         recognition = null;
     }
+}
+
+// ==========================================
+// 🌲 TREEWALKER: EXTRACT TEXT WITHOUT CODE
+// ==========================================
+function extractTextWithoutCode(root) {
+    if (!root) return "";
+
+    const walker = document.createTreeWalker(
+        root,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode: (node) => {
+                const parent = node.parentElement;
+                if (!parent) return NodeFilter.FILTER_REJECT;
+                if (parent.closest('pre, code, .code-block')) return NodeFilter.FILTER_REJECT;
+                if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }
+    );
+
+    const parts = [];
+    let n;
+    while (n = walker.nextNode()) parts.push(n.nodeValue.trim());
+    return parts.join(' ');
 }
 
 // ==========================================
@@ -129,7 +219,8 @@ function splitText(text) {
         let char = text[i];
         current += char;
         if ("।!?.".includes(char)) {
-            if (char === '.' && i + 1 < text.length && text[i + 1] !== ' ' && !isNaN(text[i - 1])) {
+            // दशमलव (जैसे 3.14) पर सेंटेंस न टूटे
+            if (char === '.' && i > 0 && i + 1 < text.length && text[i + 1] !== ' ' && !isNaN(text[i - 1])) {
                 continue;
             }
             sentences.push(current.trim());
@@ -182,7 +273,6 @@ function speak(text) {
     }
 
     isSpeaking = true;
-    // यहाँ डिटेक्ट की गई भाषा का उपयोग हो रहा है (tl=currentLangCode)
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${currentLangCode}&client=tw-ob`;
 
     try {
@@ -223,7 +313,14 @@ function fallbackSpeak(text) {
         try {
             window.speechSynthesis.cancel();
             const utter = new SpeechSynthesisUtterance(text);
-            utter.lang = currentLangCode === 'en' ? 'en-US' : (currentLangCode + '-' + currentLangCode.toUpperCase());
+
+            // ✅ सही locale tag और matched voice
+            const langTag = toLocaleTag(currentLangCode);
+            utter.lang = langTag;
+            const matchedVoice = getVoiceForLang(langTag);
+            if (matchedVoice) {
+                utter.voice = matchedVoice;
+            }
 
             utter.onend = () => {
                 isSpeaking = false;
@@ -232,7 +329,7 @@ function fallbackSpeak(text) {
                     processQueue();
                 }
             };
-            
+
             utter.onerror = () => {
                 isSpeaking = false;
                 if (isPlaying && !isPaused) {
@@ -245,7 +342,7 @@ function fallbackSpeak(text) {
             return;
         } catch (e) {}
     }
-    
+
     isSpeaking = false;
     index++;
     processQueue();
@@ -266,20 +363,19 @@ function startSpeech(btn) {
     const bubble = btn.closest('.bubble');
     if (!bubble) return;
 
-    // कोड ब्लॉक को हटा दें ताकि कोडिंग को आवाज़ में न पढ़े
-    const cloneBubble = bubble.cloneNode(true);
-    const codeBlocks = cloneBubble.querySelectorAll('pre, code, .code-block');
-    codeBlocks.forEach(block => block.remove());
-
-    const textContent = cloneBubble.querySelector('.text-content');
+    const textContent = bubble.querySelector('.text-content');
     if (!textContent) return;
 
-    const text = textContent.innerText;
-    
-    // 🌍 यहीं पर शुरू में ही पूरे टेक्स्ट की भाषा पहचान लो!
+    // ✅ TreeWalker से सीधे text निकालो (clone नहीं, code block skip)
+    const text = extractTextWithoutCode(textContent);
+    if (!text || !text.trim()) return;
+
+    // भाषा पहचानो
     currentLangCode = detectTextLanguage(text);
 
     queue = splitText(text);
+    if (queue.length === 0) return;
+
     index = 0;
     isPlaying = true;
     isPaused = false;
@@ -291,7 +387,7 @@ function startSpeech(btn) {
 function pauseSpeech() {
     if (!isPlaying) return;
     isPaused = true;
-    
+
     if (currentAudio) {
         try { currentAudio.pause(); } catch (e) {}
     }
@@ -357,7 +453,7 @@ function speakFromBubble(btn) {
 }
 
 // ==========================================
-// 📋 ROBUST COPY FUNCTIONS (TEXT & CODE)
+// 📋 ROBUST COPY FUNCTIONS
 // ==========================================
 function showCopiedFeedback(btn) {
     if (!btn.dataset.originalText) {
@@ -375,7 +471,7 @@ function copyToClipboard(btn) {
     const textContent = btn.closest('.bubble')?.querySelector('.text-content');
     if (!textContent) return;
     const text = textContent.innerText;
-    
+
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
             showCopiedFeedback(btn);
@@ -391,7 +487,7 @@ function copyCode(btn) {
     const codeEl = btn.closest('.code-block')?.querySelector("code");
     if (!codeEl) return;
     const code = codeEl.innerText;
-    
+
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(code).then(() => {
             showCopiedFeedback(btn);
