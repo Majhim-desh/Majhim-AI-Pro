@@ -25,8 +25,13 @@ async function setupSystem() {
     }
 }
 
-// सिस्टम स्टार्ट करें
-setupSystem();
+// ✅ FIX: DOM ready होने के बाद ही setupSystem चलाओ
+// (वरना ai-logic.js के variables access नहीं होंगे)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupSystem);
+} else {
+    setupSystem();
+}
 
 // --- Auth Functions ---
 let loginInProgress = false;
@@ -41,20 +46,13 @@ async function login() {
 
     try {
         console.log("LOGIN: Starting...");
-        console.log("LOGIN: Current URL:", window.location.href);
-        console.log("LOGIN: Origin:", window.location.origin);
-        console.log("LOGIN: Auth Domain:", firebaseConfig.authDomain);
-        console.log("LOGIN: Project ID:", firebaseConfig.projectId);
-
         const result = await auth.signInWithPopup(provider);
-
         console.log("LOGIN SUCCESS:", result.user);
-        
+
     } catch (error) {
         console.error("========== GOOGLE LOGIN ERROR ==========");
         console.error("Code:", error.code);
         console.error("Message:", error.message);
-        console.error("Name:", error.name);
         console.error("Full Error:", error);
         console.error("========================================");
 
@@ -94,12 +92,13 @@ function observeAuth() {
 
             if (userProfile) {
                 userProfile.style.display = 'flex';
-                userName.innerText = user.displayName.split(' ')[0];
+                userName.innerText = user.displayName ? user.displayName.split(' ')[0] : 'User';
             }
 
             // 🧹 Chat box साफ करें और Conversation List लोड करें
+            const chatBox = document.getElementById('chat-container');
             if (chatBox) chatBox.innerHTML = '';
-            loadConversationList();
+            if (typeof loadConversationList === 'function') loadConversationList();
 
         } else {
             if (loginBtn) loginBtn.style.display = 'block';
