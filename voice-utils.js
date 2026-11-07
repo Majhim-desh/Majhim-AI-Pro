@@ -11,7 +11,7 @@ function startVoiceTyping() {
     }
 
     const recognition = new webkitSpeechRecognition();
-    recognition.lang = 'hi-IN'; // हिंदी सपोर्ट के लिए
+    recognition.lang = 'hi-IN';
     recognition.interimResults = false;
 
     recognition.onstart = () => {
@@ -32,7 +32,7 @@ function startVoiceTyping() {
 }
 
 // ==========================================
-// 🎤 FINAL STABLE VOICE ENGINE (PURE QUEUE)
+// 🎤 HYBRID STABLE VOICE ENGINE
 // ==========================================
 let queue = [];
 let index = 0;
@@ -42,20 +42,23 @@ let isSpeaking = false;
 let currentAudio = null;
 let activeBtn = null;
 
-// 🛑 RESET: इंजन को पूरी तरह रोकने के लिए
 function stopSpeech() {
     isPlaying = false;
     isPaused = false;
     isSpeaking = false;
 
     if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.src = "";
+        try {
+            currentAudio.pause();
+            currentAudio.src = "";
+        } catch (e) {}
         currentAudio = null;
     }
 
     if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
+        try {
+            window.speechSynthesis.cancel();
+        } catch (e) {}
     }
 
     if (activeBtn) {
@@ -64,7 +67,6 @@ function stopSpeech() {
     }
 }
 
-// ✂️ SAFE SPLIT: Google TTS की 200-अक्षर सीमा और "Last Line" फिक्स
 function splitText(text) {
     text = text.replace(/```[\s\S]*?```/g, "कोड ब्लॉक");
 
@@ -105,7 +107,6 @@ function splitText(text) {
     return finalQueue.filter(line => line.length > 0);
 }
 
-// 🔊 SPEAK: लाइन बजाने के लिए
 function speak(text) {
     if (!isPlaying || isPaused) return;
 
@@ -113,46 +114,65 @@ function speak(text) {
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=hi&client=tw-ob`;
 
     if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.src = "";
+        try {
+            currentAudio.pause();
+            currentAudio.src = "";
+        } catch (e) {}
     }
 
-    currentAudio = new Audio(url);
+    try {
+        currentAudio = new Audio(url);
 
-    currentAudio.onended = () => {
-        isSpeaking = false;
-        index++;
-        processQueue();
-    };
-
-    currentAudio.onerror = () => {
-        fallbackSpeak(text);
-    };
-
-    currentAudio.play().catch(() => fallbackSpeak(text));
-}
-
-// 🔊 FALLBACK: ऑफलाइन/फेल होने पर ब्राउजर वॉइस का सहारा
-function fallbackSpeak(text) {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = "hi-IN";
-
-        utter.onend = () => {
+        currentAudio.onended = () => {
             isSpeaking = false;
             index++;
             processQueue();
         };
-        window.speechSynthesis.speak(utter);
-    } else {
-        isSpeaking = false;
-        index++;
-        processQueue();
+
+        currentAudio.onerror = () => {
+            fallbackSpeak(text);
+        };
+
+        const playPromise = currentAudio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(() => {
+                fallbackSpeak(text);
+            });
+        }
+    } catch (e) {
+        fallbackSpeak(text);
     }
 }
 
-// 🔁 QUEUE PROCESSOR: एक के बाद एक लाइन चलाने वाला दिमाग
+function fallbackSpeak(text) {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+        try {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = "hi-IN";
+
+            utter.onend = () => {
+                isSpeaking = false;
+                index++;
+                processQueue();
+            };
+            
+            utter.onerror = () => {
+                isSpeaking = false;
+                index++;
+                processQueue();
+            };
+
+            window.speechSynthesis.speak(utter);
+            return;
+        } catch (e) {}
+    }
+    
+    isSpeaking = false;
+    index++;
+    processQueue();
+}
+
 function processQueue() {
     if (!isPlaying || isPaused || isSpeaking) return;
 
@@ -163,7 +183,6 @@ function processQueue() {
     speak(queue[index]);
 }
 
-// ▶️ CONTROL FUNCTIONS
 function startSpeech(btn) {
     stopSpeech();
     const textContent = btn.closest('.bubble')?.querySelector('.text-content');
@@ -180,82 +199,74 @@ function startSpeech(btn) {
 }
 
 function pauseSpeech() {
+    if (!isPlaying) return;
     isPaused = true;
-    try {
-        if (currentAudio && !currentAudio.paused) {
+    
+    if (currentAudio) {
+        try {
             currentAudio.pause();
-        }
-    } catch (e) {}
+        } catch (e) {}
+    }
 
-    try {
-        if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
+    if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
+        try {
             window.speechSynthesis.pause();
-        }
-    } catch (e) {}
+        } catch (e) {}
+    }
 
     if (activeBtn) activeBtn.innerText = "Resume ▶️";
 }
 
 function resumeSpeech() {
+    if (!isPlaying || !isPaused) return;
     isPaused = false;
     if (activeBtn) activeBtn.innerText = "Pause ⏸️";
 
-    let played = false;
-
-    try {
-        if (currentAudio) {
+    // हाइब्रिड अप्रोच: अगर ऑडियो ऑब्जेक्ट मौजूद है और पॉज्ड है, तो उसे चलाएं
+    if (currentAudio && currentAudio.paused) {
+        try {
             const playPromise = currentAudio.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    played = true;
+                    return; // सफलतापूर्वक रिज्यूम हो गया
                 }).catch(() => {
-                    processQueue();
+                    regenAndPlayCurrentIndex();
                 });
             } else {
-                played = true;
-            }
-        }
-    } catch (e) {}
-
-    if (!played) {
-        try {
-            if (typeof window !== 'undefined' && window.speechSynthesis) {
-                if (window.speechSynthesis.paused || window.speechSynthesis.speaking) {
-                    window.speechSynthesis.resume();
-                } else {
-                    processQueue();
-                }
-            } else {
-                processQueue();
+                return;
             }
         } catch (e) {
-            processQueue();
+            regenAndPlayCurrentIndex();
         }
+    } else {
+        regenAndPlayCurrentIndex();
     }
 }
 
-// 🔘 TOGGLE FUNCTION (यह मिसिंग था जिसकी वजह से बटन काम नहीं कर रहा था)
+// फॉलबैक या नए सिरे से उसी इंडेक्स को प्ले करने के लिए
+function regenAndPlayCurrentIndex() {
+    if (index < queue.length) {
+        speak(queue[index]);
+    } else {
+        stopSpeech();
+    }
+}
+
 function toggleSpeech(btn) {
-    if (isPlaying) {
-        startSpeech(btn);
-    } else if (isPaused) {
+    if (isPlaying && !isPaused) {
+        pauseSpeech();
+    } else if (isPlaying && isPaused) {
         resumeSpeech();
     } else {
-        pauseSpeech();
+        startSpeech(btn);
     }
 }
 
 function speakFromBubble(btn) {
     if (activeBtn && activeBtn !== btn) {
         stopSpeech();
-        startSpeech(btn);
-    } else if (!isPlaying && !isPaused) {
-        startSpeech(btn);
-    } else if (isPaused) {
-        resumeSpeech();
-    } else {
-        pauseSpeech();
     }
+    toggleSpeech(btn);
 }
 
 // ==========================================
@@ -298,11 +309,13 @@ function copyCode(btn) {
 }
 
 function fallbackCopy(text, cb) {
-    const t = document.createElement("textarea");
-    t.value = text;
-    document.body.appendChild(t);
-    t.select();
-    document.execCommand("copy");
-    document.body.removeChild(t);
+    try {
+        const t = document.createElement("textarea");
+        t.value = text;
+        document.body.appendChild(t);
+        t.select();
+        document.execCommand("copy");
+        document.body.removeChild(t);
+    } catch (e) {}
     cb();
 }
