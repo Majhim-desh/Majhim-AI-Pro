@@ -351,24 +351,50 @@ async function callChatGPT(query, activeConvId) {
     if (typingUI) typingUI.style.display = 'inline';
 
     try {
+        // 1. Firebase ID Token प्राप्त करें
+        const user = auth.currentUser;
+        if (!user) {
+            if (currentConversationId === activeConvId) {
+                addBubble("कृपया पहले Google से लॉगिन करें!", 'bot');
+            }
+            return;
+        }
+        const token = await user.getIdToken();
+
+        // 2. Version 4 Preview URL पर Authorization Header के साथ अनुरोध भेजें
         const res = await fetch(
-            'https://groq-proxy.bnmadheshi108.workers.dev',
+            'https://cf6ce136-groq-proxy-test.bnmadheshi108.workers.dev',
             {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ message: query })
             }
         );
 
+        // 3. Worker Error Response को पढ़ना
         if (!res.ok) {
-            throw new Error(`Server returned status: ${res.status}`);
+            let errorMsg = `Server returned status: ${res.status}`;
+            try {
+                const errData = await res.json();
+                if (errData && errData.error) {
+                    errorMsg = errData.error;
+                }
+            } catch (err) {
+                // JSON न मिलने पर डिफ़ॉल्ट स्टेटस मैसेज रहेगा
+            }
+            throw new Error(errorMsg);
         }
 
         const data = await res.json();
 
-        if (data.choices && data.choices[0]) {
-            const aiResponse = data.choices[0].message.content;
+        // 4. सख्त Response Validation
+        if (data && typeof data.reply === 'string' && data.reply.trim().length > 0) {
+            const aiResponse = data.reply;
 
+            // 5. केवल उसी बातचीत में जवाब दिखाएँ जो अभी खुली है
             if (currentConversationId === activeConvId) {
                 addBubble(aiResponse, 'bot');
             }
@@ -377,17 +403,19 @@ async function callChatGPT(query, activeConvId) {
             loadConversationList();
         } else {
             if (currentConversationId === activeConvId) {
-                addBubble("AI से जवाब नहीं मिल पाया, दोबारा कोशिश करें।", 'bot');
+                addBubble("AI से अमान्य या खाली जवाब मिला, दोबारा कोशिश करें।", 'bot');
             }
         }
 
     } catch (e) {
+        console.error("Chat Error:", e);
         if (currentConversationId === activeConvId) {
-            addBubble("नेटवर्क में कुछ गड़बड़ है भाई, इंटरनेट चेक करो!", 'bot');
+            addBubble(`त्रुटि: ${e.message || "नेटवर्क में कुछ गड़बड़ है भाई!"}`, 'bot');
         }
+    } finally {
+        // 6. हमेशा Typing Indicator बंद होगा
+        if (typingUI) typingUI.style.display = 'none';
     }
-
-    if (typingUI) typingUI.style.display = 'none';
 }
 
 async function generateAIImage(prompt, activeConvId) {
