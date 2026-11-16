@@ -61,50 +61,209 @@ function getVoiceForLang(langTag) {
 // ==========================================
 let recognition = null;
 
+// ==========================================
+// 🎤 MAJHIM AI PRO — UNIVERSAL VOICE TYPING
+// Safe Toggle + Cursor + Selection + Smart Spacing
+// ==========================================
+
 function startVoiceTyping() {
     const inputField = document.getElementById('user-input');
     const micBtn = document.getElementById('mic-btn');
 
-    if (!('webkitSpeechRecognition' in window)) {
-        alert("Sorry, your browser does not support speech recognition.");
+    // 1. Browser Support Check
+    const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!inputField) return;
+
+    if (!SpeechRecognition) {
+        alert(
+            "भाई, आपके ब्राउज़र में Direct Voice Typing का सपोर्ट उपलब्ध नहीं है।\n\n" +
+            "अभी Google Chrome या Microsoft Edge इस्तेमाल करें।\n" +
+            "Firefox के लिए भविष्य में अलग Speech-to-Text सुविधा जोड़ेंगे।"
+        );
         return;
     }
 
+    // 2. Safe Toggle — पुरानी Recording बंद होने तक नई शुरू नहीं होगी
     if (recognition) {
-        try { recognition.stop(); } catch (e) {}
-        recognition = null;
+        try {
+            recognition.stop();
+        } catch (e) {
+            try {
+                recognition.abort();
+            } catch (err) {}
+        }
+        return;
     }
 
-    recognition = new webkitSpeechRecognition();
-    recognition.lang = 'hi-IN';
-    recognition.interimResults = false;
+    // 3. Create a Separate Recognition Instance
+    const currentRec = new SpeechRecognition();
+    recognition = currentRec;
 
-    recognition.onstart = () => {
-        if (micBtn) { micBtn.innerText = "🛑"; micBtn.style.background = "#ff4444"; }
-    };
+    currentRec.lang = 'hi-IN';
+    currentRec.interimResults = false;
+    currentRec.continuous = false;
 
-    recognition.onresult = (event) => {
-        if (inputField) inputField.value = event.results[0][0].transcript;
-    };
-
-    recognition.onerror = (e) => {
-        if (micBtn) { micBtn.innerText = "🎤"; micBtn.style.background = "#00a884"; }
-        recognition = null;
-        if (e.error === 'not-allowed') {
-            alert("माइक की permission दो भाई!");
-        } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
-            alert("Voice नहीं पकड़ पाया, दोबारा try करो");
+    // 4. Common Mic Button Reset
+    const resetMicButton = () => {
+        if (micBtn) {
+            micBtn.innerText = "🎤";
+            micBtn.style.background = "#00a884";
         }
     };
 
-    recognition.onend = () => {
-        if (micBtn) { micBtn.innerText = "🎤"; micBtn.style.background = "#00a884"; }
+    // 5. Recording Started
+    currentRec.onstart = () => {
+        if (recognition !== currentRec) return;
+
+        if (micBtn) {
+            micBtn.innerText = "🛑";
+            micBtn.style.background = "#ff4444";
+        }
+    };
+
+    // 6. Voice Result — Cursor + Selection + Smart Spacing
+    currentRec.onresult = (event) => {
+        if (recognition !== currentRec || !inputField) return;
+
+        // Get the latest final result
+        const resultIndex =
+            typeof event.resultIndex === 'number'
+                ? event.resultIndex
+                : 0;
+
+        const result = event.results[resultIndex];
+
+        if (!result || !result[0]) return;
+        if (result.isFinal === false) return;
+
+        const transcript = result[0].transcript.trim();
+
+        if (!transcript) return;
+
+        const currentValue = inputField.value || "";
+
+        // Current cursor and selected-text positions
+        let start = inputField.selectionStart;
+        let end = inputField.selectionEnd;
+
+        if (typeof start !== 'number') start = currentValue.length;
+        if (typeof end !== 'number') end = currentValue.length;
+
+        const textBefore = currentValue.substring(0, start);
+        const textAfter = currentValue.substring(end);
+
+        // 7. Smart Spacing Helpers
+        const isWordChar = (char) =>
+            !!char && /[a-zA-Z0-9\u0900-\u097F]/.test(char);
+
+        const isClosingPunctuation = (char) =>
+            !!char && /[,;.!?।॥:)\]}»'"”’]/.test(char);
+
+        const isWhitespace = (char) =>
+            !!char && /\s/.test(char);
+
+        let prefix = "";
+        let suffix = "";
+
+        // Add a space before spoken text when needed.
+        // Also handles punctuation such as comma and full stop.
+        if (textBefore.length > 0) {
+            const previousChar = textBefore.slice(-1);
+            const firstSpokenChar = transcript.charAt(0);
+
+            if (!isWhitespace(previousChar)) {
+                if (
+                    isWordChar(previousChar) ||
+                    isClosingPunctuation(previousChar)
+                ) {
+                    if (isWordChar(firstSpokenChar)) {
+                        prefix = " ";
+                    }
+                }
+            }
+        }
+
+        // Add a space after spoken text only when the next
+        // existing character is another word character.
+        if (textAfter.length > 0) {
+            const nextChar = textAfter.charAt(0);
+            const lastSpokenChar = transcript.slice(-1);
+
+            if (
+                !isWhitespace(nextChar) &&
+                isWordChar(nextChar) &&
+                isWordChar(lastSpokenChar)
+            ) {
+                suffix = " ";
+            }
+        }
+
+        // 8. Insert at Cursor / Replace Selected Text
+        const insertedText = prefix + transcript + suffix;
+
+        inputField.value =
+            textBefore + insertedText + textAfter;
+
+        // Move cursor just after the inserted text
+        const newCursorPos = start + insertedText.length;
+
+        try {
+            inputField.setSelectionRange(
+                newCursorPos,
+                newCursorPos
+            );
+        } catch (e) {}
+
+        // 9. Notify Website About the Input Change
+        try {
+            inputField.dispatchEvent(
+                new Event('input', { bubbles: true })
+            );
+        } catch (e) {
+            // Compatibility fallback for older browsers
+            try {
+                const inputEvent = document.createEvent('Event');
+                inputEvent.initEvent('input', true, false);
+                inputField.dispatchEvent(inputEvent);
+            } catch (err) {}
+        }
+    };
+
+    // 10. Recognition Error
+    currentRec.onerror = (event) => {
+        if (recognition !== currentRec) return;
+
+        resetMicButton();
+        recognition = null;
+
+        if (event.error === 'not-allowed') {
+            alert("माइक की permission दो भाई!");
+        } else if (
+            event.error !== 'no-speech' &&
+            event.error !== 'aborted'
+        ) {
+            alert("Voice नहीं पकड़ पाया, दोबारा try करो।");
+        }
+    };
+
+    // 11. Recognition Ended
+    currentRec.onend = () => {
+        if (recognition !== currentRec) return;
+
+        resetMicButton();
         recognition = null;
     };
 
-    try { recognition.start(); } catch (e) {
-        if (micBtn) { micBtn.innerText = "🎤"; micBtn.style.background = "#00a884"; }
-        recognition = null;
+    // 12. Start Recording
+    try {
+        currentRec.start();
+    } catch (e) {
+        if (recognition === currentRec) {
+            resetMicButton();
+            recognition = null;
+        }
     }
 }
 
